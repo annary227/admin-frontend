@@ -29,11 +29,12 @@
           </template>
         </el-table-column>
 
-        <!-- 🆕 核心：展示客户的银行卡收款信息 -->
+        <!-- 🆕 核心：展示客户的银行卡收款信息（包含支店编号） -->
         <el-table-column label="收款银行信息" min-width="300">
           <template #default="scope">
             <div class="bank-info" v-if="scope.row.bank_name && scope.row.account_number">
-              <div><span class="label">银行：</span>{{ scope.row.bank_name }} <span style="color: #94a3b8;">({{ scope.row.branch_name }})</span></div>
+              <div><span class="label">银行：</span>{{ scope.row.bank_name }}</div>
+              <div><span class="label">支店：</span>{{ scope.row.branch_name }} <span style="color: #94a3b8; font-size: 12px;">({{ scope.row.branch_code || '无编号' }})</span></div>
               <div><span class="label">类型：</span>{{ scope.row.account_type === 'ordinary' ? '普通' : '当座' }}</div>
               <div><span class="label">账号：</span><span style="font-family: monospace; font-weight: bold; color: #0f172a;">{{ scope.row.account_number }}</span></div>
               <div><span class="label">户名：</span>{{ scope.row.account_name }}</div>
