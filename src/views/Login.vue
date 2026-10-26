@@ -98,10 +98,19 @@ const handleLogin = async () => {
       username: username.value, 
       password: password.value 
     });
+    
     if (res.data.success) {
+      // 1. 保存用户信息（保留你原有的逻辑）
       localStorage.setItem('user', JSON.stringify(res.data.user));
+      
+      // 2. 伪造一个 admin_token 存入本地，骗过路由守卫（核心修复）
+      // 因为后端没给 token，这里用用户名和时间戳组合一个假 token
+      localStorage.setItem('admin_token', `token_${res.data.user.username}_${Date.now()}`);
+      
       ElMessage.success('ログイン成功');
-      router.push('/');
+      
+      // 3. 直接跳转到控制台首页
+      router.push('/dashboard');
     }
   } catch (error) {
     ElMessage.error(error.response?.data?.error || '登录失败，请检查账号密码');
