@@ -2,12 +2,14 @@ import axios from 'axios';
 
 // 创建 axios 实例
 const request = axios.create({
-  // 统一前缀，后续页面里只需写 '/admin/xxx' 即可
-  baseURL: '/api', 
+  // 🆕 直接写死最新的隧道地址，带上 /api 后缀，彻底绕过 Vercel 代理！
+  baseURL: 'https://merchandise-customize-instructions-isp.trycloudflare.com/api', 
   timeout: 15000,
   headers: {
-    // 🔥 核心关键：绕过 loca.lt 的免费隧道点击拦截页
-    'bypass-tunnel-reminder': '1' 
+    'Content-Type': 'application/json',
+    // 保留绕过隧道拦截的请求头
+    'bypass-tunnel-reminder': '1',
+    'cf-skip-browser-warning': 'true'
   }
 });
 
