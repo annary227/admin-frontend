@@ -1,8 +1,10 @@
 <template>
   <div class="verify-page">
     <div class="toolbar">
-      <h2 style="margin: 0; color: #1e293b;">实名认证审核 (KYC)</h2>
-      <el-button type="primary" icon="Refresh" @click="fetchPendingUsers" :loading="loading">刷新列表</el-button>
+      <h2 style="margin: 0; color: #1e293b; font-weight: 800;">实名认证审核 (KYC)</h2>
+      <el-button type="primary" color="#e83862" icon="Refresh" @click="fetchPendingUsers" :loading="loading">
+        刷新列表
+      </el-button>
     </div>
 
     <el-card shadow="never" class="table-card">
@@ -13,37 +15,50 @@
         :header-cell-style="{ background: '#f8fafc', color: '#64748b', fontWeight: 'bold' }"
       >
         <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="账号" width="150" />
-        <el-table-column prop="real_name" label="真实姓名" width="150" />
-        <el-table-column prop="id_number" label="证件号码" min-width="180" />
-        
-        <!-- 🆕 新增：当前状态列 -->
-        <el-table-column label="当前状态" width="120">
+        <el-table-column prop="username" label="账号" width="180">
           <template #default="scope">
-            <el-tag v-if="scope.row.verify_status === 1" type="warning">审核中</el-tag>
-            <el-tag v-else-if="scope.row.verify_status === 2" type="success">已通过</el-tag>
-            <el-tag v-else type="info">已驳回</el-tag>
+            <span style="font-weight: 500; color: #1e293b;">{{ scope.row.username }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="real_name" label="真实姓名" width="150">
+          <template #default="scope">
+            <span style="font-weight: bold; color: #e83862;">{{ scope.row.real_name || '未填写' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="id_number" label="证件号码" min-width="180">
+          <template #default="scope">
+            <span style="font-family: monospace; font-size: 14px;">{{ scope.row.id_number || '未填写' }}</span>
+          </template>
+        </el-table-column>
+        
+        <!-- 当前状态列 -->
+        <el-table-column label="当前状态" width="120" align="center">
+          <template #default="scope">
+            <el-tag v-if="scope.row.verify_status === 1" type="warning" effect="dark">审核中</el-tag>
+            <el-tag v-else-if="scope.row.verify_status === 2" type="success" effect="light">已通过</el-tag>
+            <el-tag v-else type="danger" effect="plain">已驳回</el-tag>
           </template>
         </el-table-column>
 
         <el-table-column prop="last_active_at" label="申请/活跃时间" width="180">
           <template #default="scope">
-            <span class="time-text">{{ new Date(scope.row.last_active_at).toLocaleString() }}</span>
+            <!-- 修复时区显示 -->
+            <span class="time-text">{{ formatTime(scope.row.last_active_at) }}</span>
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right" align="center">
           <template #default="scope">
-            <!-- 待审核状态：显示 通过 / 驳回 -->
-            <div v-if="scope.row.verify_status === 1">
+            <!-- 待审核状态 -->
+            <div v-if="scope.row.verify_status === 1" style="display: flex; gap: 8px; justify-content: center;">
               <el-button type="success" size="small" @click="handleApprove(scope.row.id, 'approve')">通过</el-button>
               <el-button type="danger" size="small" plain @click="handleApprove(scope.row.id, 'reject')">驳回</el-button>
             </div>
-            <!-- 🆕 已通过状态：显示 撤销并驳回 -->
+            <!-- 已通过状态 -->
             <div v-else-if="scope.row.verify_status === 2">
               <el-button type="warning" size="small" plain @click="handleApprove(scope.row.id, 'reject')">撤销并驳回</el-button>
             </div>
-            <!-- 已驳回状态：显示 重新通过 -->
+            <!-- 已驳回状态 -->
             <div v-else>
               <el-button type="success" size="small" plain @click="handleApprove(scope.row.id, 'approve')">重新通过</el-button>
             </div>
@@ -51,7 +66,7 @@
         </el-table-column>
       </el-table>
       
-      <el-empty v-if="pendingUsers.length === 0 && !loading" description="当前没有待审核的实名申请" />
+      <el-empty v-if="pendingUsers.length === 0 && !loading" description="当前没有待审核的实名申请" :image-size="100" />
     </el-card>
   </div>
 </template>
@@ -83,7 +98,11 @@ const fetchPendingUsers = async () => {
 const handleApprove = async (userId, action) => {
   const actionText = action === 'approve' ? '通过' : '驳回';
   try {
-    await ElMessageBox.confirm(`确认要${actionText}该用户的实名申请吗？`, '提示', { type: 'warning' });
+    await ElMessageBox.confirm(`确认要${actionText}该用户的实名申请吗？`, '操作确认', { 
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
+    });
     
     const res = await request.post(`/admin/approve-verify/${userId}`, { action });
     if (res.data.success) {
@@ -97,13 +116,20 @@ const handleApprove = async (userId, action) => {
   }
 };
 
+// 格式化时间
+const formatTime = (timeStr) => {
+  if (!timeStr) return '-';
+  const date = new Date(timeStr);
+  return date.toLocaleString('ja-JP', { hour12: false });
+};
+
 onMounted(() => {
   fetchPendingUsers();
 });
 </script>
 
 <style scoped>
-.verify-page { display: flex; flex-direction: column; gap: 20px; }
+.verify-page { display: flex; flex-direction: column; gap: 20px; padding: 20px; }
 .toolbar { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
 .table-card { border-radius: 12px; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
 .time-text { color: #64748b; font-size: 13px; }
