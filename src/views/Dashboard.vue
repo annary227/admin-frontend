@@ -34,7 +34,6 @@
           <template #header>
             <div class="card-header">
               <span class="card-title-icon">🎯 全局动态概率调控</span>
-              <!-- 注意：这里去掉了 :loading，防止被 watch 干扰导致点击无效 -->
               <el-button type="primary" size="small" color="#e83862" @click="saveGlobalProbability">保存并生效</el-button>
             </div>
           </template>
@@ -199,7 +198,6 @@ watch(globalProbabilities, (newVal) => {
 
 const fetchGlobalProb = async () => {
   try {
-    // 注意：request.js 里配了 baseURL: '/api'，所以这里只写 /admin
     const res = await request.get('/admin/probability'); 
     if (res.data.success) {
       globalProbabilities.value = res.data.probability.map(p => ({ 
@@ -213,7 +211,6 @@ const fetchGlobalProb = async () => {
 const saveGlobalProbability = async () => {
   console.log("🔥 按钮被点击了！准备发送请求！");
   
-  // 深拷贝一份数据，切断响应式引用，避免数据在发送瞬间被 watch 修改
   const payloadData = JSON.parse(JSON.stringify(globalProbabilities.value));
   console.log("📦 发送的数据：", payloadData);
 
@@ -273,7 +270,10 @@ const initUserProb = () => {
 const saveUserProb = async () => {
   savingUserProb.value = true;
   try {
-    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: userProbabilities.value }); 
+    // 🔥 核心修复：过滤掉概率为 0 的垃圾数据，只把生效的传给后端
+    const validProbabilities = userProbabilities.value.filter(p => Number(p.probability) > 0);
+    
+    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: validProbabilities }); 
     ElMessage.success('该用户专属概率已生效');
     drawerVisible.value = false;
     fetchAllUsers();
