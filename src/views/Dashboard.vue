@@ -199,7 +199,8 @@ watch(globalProbabilities, (newVal) => {
 
 const fetchGlobalProb = async () => {
   try {
-    const res = await request.get('/api/admin/probability'); // 补齐 /api 前缀
+    // 注意：request.js 里配了 baseURL: '/api'，所以这里只写 /admin
+    const res = await request.get('/admin/probability'); 
     if (res.data.success) {
       globalProbabilities.value = res.data.probability.map(p => ({ 
         ...p, 
@@ -212,14 +213,13 @@ const fetchGlobalProb = async () => {
 const saveGlobalProbability = async () => {
   console.log("🔥 按钮被点击了！准备发送请求！");
   
-  // 核心：深拷贝一份数据，切断响应式引用，避免数据在发送瞬间被 watch 修改
+  // 深拷贝一份数据，切断响应式引用，避免数据在发送瞬间被 watch 修改
   const payloadData = JSON.parse(JSON.stringify(globalProbabilities.value));
   console.log("📦 发送的数据：", payloadData);
 
   savingGlobal.value = true;
   try {
-    // 补齐 /api 前缀
-    const res = await request.post('/api/admin/probability', { probability: payloadData });
+    const res = await request.post('/admin/probability', { probability: payloadData });
     if (res.data.success) {
       ElMessage.success('全局概率已生效');
     }
@@ -238,14 +238,14 @@ const keyword = ref('');
 
 const fetchOnlineUsers = async () => {
   try {
-    const res = await request.get('/api/admin/online-users'); // 补齐 /api 前缀
+    const res = await request.get('/admin/online-users'); 
     if (res.data.success) onlineUsers.value = res.data.users;
   } catch (e) { console.error(e); }
 };
 
 const fetchAllUsers = async () => {
   try {
-    const res = await request.get(`/api/admin/users?keyword=${keyword.value}`); // 补齐 /api 前缀
+    const res = await request.get(`/admin/users?keyword=${keyword.value}`); 
     if (res.data.success) allUsersList.value = res.data.users;
   } catch (e) { ElMessage.error('获取用户失败'); }
 };
@@ -273,7 +273,7 @@ const initUserProb = () => {
 const saveUserProb = async () => {
   savingUserProb.value = true;
   try {
-    await request.post(`/api/admin/set-user-probability/${currentUser.value.id}`, { probability: userProbabilities.value }); // 补齐 /api 前缀
+    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: userProbabilities.value }); 
     ElMessage.success('该用户专属概率已生效');
     drawerVisible.value = false;
     fetchAllUsers();
@@ -283,7 +283,7 @@ const saveUserProb = async () => {
 
 const clearUserProb = async () => {
   try {
-    await request.post(`/api/admin/set-user-probability/${currentUser.value.id}`, { probability: null }); // 补齐 /api 前缀
+    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: null }); 
     ElMessage.success('已恢复全局默认');
     drawerVisible.value = false;
     fetchAllUsers();
@@ -305,7 +305,7 @@ const submitRecharge = async () => {
   if (rechargeAmount.value === 0) return ElMessage.warning('金额不能为0');
   savingRecharge.value = true;
   try {
-    const res = await request.post('/api/admin/recharge', { userId: currentUser.value.id, amount: rechargeAmount.value }); // 补齐 /api 前缀
+    const res = await request.post('/admin/recharge', { userId: currentUser.value.id, amount: rechargeAmount.value }); 
     if (res.data.success) {
       ElMessage.success(res.data.message);
       rechargeVisible.value = false;
