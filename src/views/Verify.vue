@@ -14,25 +14,43 @@
         size="large" 
         :header-cell-style="{ background: '#f8fafc', color: '#64748b', fontWeight: 'bold' }"
       >
-        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="username" label="账号" width="180">
           <template #default="scope">
             <span style="font-weight: 500; color: #1e293b;">{{ scope.row.username }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="real_name" label="真实姓名" width="150">
+        
+        <el-table-column prop="real_name" label="真实姓名" width="130">
           <template #default="scope">
             <span style="font-weight: bold; color: #e83862;">{{ scope.row.real_name || '未填写' }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="id_number" label="证件号码" min-width="180">
+        <el-table-column prop="id_number" label="证件号码" width="150">
           <template #default="scope">
             <span style="font-family: monospace; font-size: 14px;">{{ scope.row.id_number || '未填写' }}</span>
           </template>
         </el-table-column>
         
+        <!-- 🆕 核心补充：银行卡信息列 -->
+        <el-table-column label="绑定银行卡信息" min-width="260">
+          <template #default="scope">
+            <div class="bank-info" v-if="scope.row.bank_name && scope.row.account_number">
+              <div><span class="label">银行：</span>{{ scope.row.bank_name }}</div>
+              <div>
+                <span class="label">支店：</span>{{ scope.row.branch_name }} 
+                <span style="color: #e83862; font-weight: bold;">[ {{ scope.row.branch_code || '无编号' }} ]</span>
+              </div>
+              <div><span class="label">类型：</span>{{ scope.row.account_type === 'ordinary' ? '普通' : '当座' }}</div>
+              <div><span class="label">账号：</span><span style="font-family: monospace; font-weight: bold;">{{ scope.row.account_number }}</span></div>
+              <div><span class="label">户名：</span>{{ scope.row.account_name }}</div>
+            </div>
+            <span v-else style="color: #ef4444; font-size: 13px;">⚠️ 未绑定银行卡</span>
+          </template>
+        </el-table-column>
+
         <!-- 当前状态列 -->
-        <el-table-column label="当前状态" width="120" align="center">
+        <el-table-column label="状态" width="110" align="center">
           <template #default="scope">
             <el-tag v-if="scope.row.verify_status === 1" type="warning" effect="dark">审核中</el-tag>
             <el-tag v-else-if="scope.row.verify_status === 2" type="success" effect="light">已通过</el-tag>
@@ -40,14 +58,13 @@
           </template>
         </el-table-column>
 
-        <el-table-column prop="last_active_at" label="申请/活跃时间" width="180">
+        <el-table-column prop="last_active_at" label="申请/活跃时间" width="170">
           <template #default="scope">
-            <!-- 修复时区显示 -->
             <span class="time-text">{{ formatTime(scope.row.last_active_at) }}</span>
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="220" fixed="right" align="center">
+        <el-table-column label="操作" width="180" fixed="right" align="center">
           <template #default="scope">
             <!-- 待审核状态 -->
             <div v-if="scope.row.verify_status === 1" style="display: flex; gap: 8px; justify-content: center;">
@@ -133,4 +150,8 @@ onMounted(() => {
 .toolbar { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
 .table-card { border-radius: 12px; border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
 .time-text { color: #64748b; font-size: 13px; }
+
+/* 银行卡信息排版 */
+.bank-info { font-size: 13px; line-height: 1.6; color: #475569; }
+.bank-info .label { color: #94a3b8; display: inline-block; width: 40px; }
 </style>
