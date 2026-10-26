@@ -28,51 +28,27 @@
     <!-- 2. 核心工作区 -->
     <el-row :gutter="20" style="margin-top: 20px;">
       
-      <!-- 左侧：全局概率调控 -->
+      <!-- 左侧：8个游戏的概率调控 -->
       <el-col :span="10">
         <el-card shadow="never" class="work-card">
           <template #header>
             <div class="card-header">
-              <div style="display: flex; align-items: center; gap: 10px;">
-                <span class="card-title-icon">🎯 全局动态概率调控</span>
-                <!-- 🆕 价格选择器 -->
-                <el-select v-model="currentCost" size="small" style="width: 130px" @change="fetchGlobalProb">
-                  <el-option label="50元奖池" :value="50" />
-                  <el-option label="100元奖池" :value="100" />
-                  <el-option label="200元奖池" :value="200" />
-                  <el-option label="300元奖池" :value="300" />
-                  <el-option label="500元奖池" :value="500" />
-                  <el-option label="1000元奖池" :value="1000" />
-                </el-select>
-              </div>
-              <!-- 注意：去掉了 :loading，防止被 watch 干扰导致点击无效 -->
-              <el-button type="primary" size="small" color="#e83862" @click="saveGlobalProbability">保存并生效</el-button>
+              <span class="card-title-icon">🎯 全游戏概率调控中心</span>
             </div>
           </template>
           
-          <div class="prob-scroll-container">
-            <div v-for="(item, index) in globalProbabilities" :key="index" class="prob-item">
-              <div class="prob-header">
-                <span class="prob-name">{{ item.name }}</span>
-                <span class="prob-value">¥{{ item.value.toLocaleString() }}</span>
-              </div>
-              <el-slider 
-                v-model="item.probability" 
-                :min="0" 
-                :max="100" 
-                :step="0.001" 
-                :format-tooltip="val => val + '%'" 
-              />
-              <div class="prob-input">
-                <el-input-number 
-                  v-model="item.probability" 
-                  :min="0" 
-                  :max="100" 
-                  :step="0.001" 
-                  :precision="3" 
-                  size="small" 
-                />
-                <span>%</span>
+          <!-- 8个游戏方块 -->
+          <div class="game-grid">
+            <div 
+              v-for="game in gameList" 
+              :key="game.name" 
+              class="game-item"
+              @click="openGlobalProbModal(game)"
+            >
+              <div class="game-icon">{{ game.icon }}</div>
+              <div class="game-info">
+                <div class="game-name">{{ game.name }}</div>
+                <div class="game-price">{{ game.price }} 円</div>
               </div>
             </div>
           </div>
@@ -132,19 +108,52 @@
 
     </el-row>
 
-    <!-- 用户专属概率抽屉 -->
-    <el-drawer v-model="drawerVisible" :title="`定向调控 - ${currentUser.username}`" size="400px">
+    <!-- 🆕 全局概率调控弹窗 -->
+    <el-dialog v-model="globalProbVisible" :title="`全局概率调控 - ${currentGame.name}`" width="500px" top="5vh">
+      <div style="max-height: 60vh; overflow-y: auto; padding-right: 10px;">
+        <div v-for="(item, index) in globalProbabilities" :key="index" class="prob-item">
+          <div class="prob-header">
+            <span class="prob-name">{{ item.name }}</span>
+            <span class="prob-value">¥{{ item.value.toLocaleString() }}</span>
+          </div>
+          <el-slider 
+            v-model="item.probability" 
+            :min="0" 
+            :max="100" 
+            :step="0.001" 
+            @input="(val) => handleGlobalSliderChange(index, val)"
+          />
+          <div style="text-align:right; font-weight:bold; color:#e83862; margin-top:5px;">{{ item.probability.toFixed(3) }}%</div>
+        </div>
+        
+        <div style="margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px; text-align: center; font-weight: bold;">
+          当前总概率：
+          <span :style="{ color: currentGameTotalWeight === 100 ? '#10b981' : '#ef4444' }">
+            {{ currentGameTotalWeight.toFixed(2) }}%
+          </span>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="globalProbVisible = false">取消</el-button>
+        <el-button type="primary" color="#e83862" @click="saveGlobalProbability" :loading="savingGlobal" :disabled="Math.abs(currentGameTotalWeight - 100) > 0.1">保存并生效</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 🆕 用户专属概率抽屉 -->
+    <el-drawer v-model="drawerVisible" :title="`定向调控 - ${currentUser.username} (${currentGame.name})`" size="400px">
       <div class="drawer-content">
         <div class="drawer-header">
-          <span style="color:#64748b;">当前设置：</span>
+          <span style="color:#64748b;">当前配置：</span>
           <el-tag :type="userProbabilities.length ? 'danger' : 'info'" effect="dark" size="small">
-            {{ userProbabilities.length ? '专属定制模式' : '跟随全局' }}
+            {{ userProbabilities.length ? '专属定制中' : '跟随全局概率' }}
           </el-tag>
         </div>
 
         <div v-if="!userProbabilities.length" class="empty-prob">
-          <el-empty description="该用户目前使用全局概率" :image-size="100" />
-          <el-button type="primary" color="#e83862" style="width: 100%;" @click="initUserProb">为TA开启专属调频</el-button>
+          <el-empty :description="`该用户在 ${currentGame.name} 暂无专属调频`" :image-size="100" />
+          <el-button type="primary" color="#e83862" style="width: 100%;" @click="initUserProb">
+            为TA开启专属调频
+          </el-button>
         </div>
         
         <div v-else class="user-prob-list">
@@ -153,12 +162,28 @@
               <span class="prob-name">{{ item.name }}</span>
               <span class="prob-value">¥{{ item.value.toLocaleString() }}</span>
             </div>
-            <el-slider v-model="item.probability" :min="0" :max="100" :step="0.001" />
-            <div style="text-align:right; font-weight:bold; color:#e83862; margin-top:5px;">{{ item.probability }}%</div>
+            <el-slider 
+              v-model="item.probability" 
+              :min="0" 
+              :max="100" 
+              :step="0.001" 
+              @input="(val) => handleUserSliderChange(index, val)"
+            />
+            <div style="text-align:right; font-weight:bold; color:#e83862; margin-top:5px;">{{ item.probability.toFixed(3) }}%</div>
           </div>
-          <div style="margin-top:40px; display:flex; gap:10px;">
-            <el-button style="flex:1;" @click="clearUserProb">恢复全局</el-button>
-            <el-button type="primary" color="#e83862" style="flex:1;" @click="saveUserProb" :loading="savingUserProb">保存生效</el-button>
+          
+          <div style="margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px; text-align: center; font-weight: bold;">
+            当前总概率：
+            <span :style="{ color: currentUserTotalWeight === 100 ? '#10b981' : '#ef4444' }">
+              {{ currentUserTotalWeight.toFixed(2) }}%
+            </span>
+          </div>
+
+          <div style="margin-top:20px; display:flex; gap:10px;">
+            <el-button style="flex:1;" @click="clearUserProb">清空此池专属</el-button>
+            <el-button type="primary" color="#e83862" style="flex:1;" @click="saveUserProb" :loading="savingUserProb" :disabled="Math.abs(currentUserTotalWeight - 100) > 0.1">
+              保存生效
+            </el-button>
           </div>
         </div>
       </div>
@@ -183,7 +208,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { ArrowDown } from '@element-plus/icons-vue';
@@ -191,32 +216,37 @@ import request from '../api/request';
 
 const router = useRouter();
 
+// ====== 🆕 8个游戏的基础配置 ======
+const gameList = ref([
+  { name: '金魚すくい', price: 200, icon: '🐟' },
+  { name: 'ダーツチャレンジ', price: 100, icon: '🎯' },
+  { name: 'クレーンゲーム', price: 300, icon: '🏗️' },
+  { name: 'ガチャポン', price: 500, icon: '🎰' },
+  { name: 'スクラッチ', price: 50, icon: '🪙' },
+  { name: 'ルーレット', price: 1000, icon: '🎡' },
+  { name: '宝探し', price: 300, icon: '💎' },
+  { name: 'スロット', price: 500, icon: '🍒' }
+]);
+
 // ====== 全局概率逻辑 ======
+const globalProbVisible = ref(false);
+const currentGame = ref({});
 const globalProbabilities = ref([]);
 const savingGlobal = ref(false);
-const currentCost = ref(500); // 🆕 默认当前选中的奖池价格（500元）
 
-watch(globalProbabilities, (newVal) => {
-  if (!newVal.length) return;
-  const loseItem = newVal.find(p => p.name === '不中奖' || p.name === 'ハズレ');
-  if (!loseItem) return;
-  
-  const winItemsTotal = newVal.filter(p => p.name !== '不中奖' && p.name !== 'ハズレ')
-                             .reduce((sum, p) => sum + Number(p.probability), 0);
-  
-  let newLoseProb = 100 - winItemsTotal;
-  if (newLoseProb < 0) newLoseProb = 0;
-  loseItem.probability = Number(newLoseProb.toFixed(3));
-}, { deep: true });
+const currentGameTotalWeight = computed(() => {
+  return globalProbabilities.value.reduce((sum, p) => sum + Number(p.probability || 0), 0);
+});
 
-const fetchGlobalProb = async () => {
+// 打开游戏调控弹窗
+const openGlobalProbModal = async (game) => {
+  currentGame.value = game;
+  globalProbVisible.value = true;
+  
   try {
-    // 🆕 动态带上当前选中的价格
-    const res = await request.get(`/admin/probability?cost=${currentCost.value}`); 
+    // 🆕 现在传递 game.name（比如“金魚すくい”）
+    const res = await request.get(`/admin/probability?gameName=${encodeURIComponent(game.name)}`); 
     if (res.data.success) {
-      if (res.data.probability.length === 0) {
-        ElMessage.warning(`${currentCost.value}元奖池尚未配置，请去数据库添加`);
-      }
       globalProbabilities.value = res.data.probability.map(p => ({ 
         ...p, 
         probability: Number(p.probability) 
@@ -225,13 +255,36 @@ const fetchGlobalProb = async () => {
   } catch (e) { ElMessage.error('获取全局概率失败'); }
 };
 
+const handleGlobalSliderChange = (index, newValue) => {
+  const list = globalProbabilities.value;
+  const isLoseItem = list[index].name === '不中奖' || list[index].name === 'ハズレ';
+  
+  if (isLoseItem) {
+    if (newValue > 100) list[index].probability = 100;
+    return;
+  }
+
+  let otherWinTotal = 0;
+  for (let i = 0; i < list.length; i++) {
+    if (i !== index && list[i].name !== '不中奖' && list[i].name !== 'ハズレ') {
+      otherWinTotal += Number(list[i].probability);
+    }
+  }
+
+  if (otherWinTotal + newValue > 100) {
+    list[index].probability = Number((100 - otherWinTotal).toFixed(3));
+  }
+
+  const loseItem = list.find(p => p.name === '不中奖' || p.name === 'ハズレ');
+  if (loseItem) {
+    const winTotal = list.filter(p => p.name !== '不中奖' && p.name !== 'ハズレ')
+                         .reduce((sum, p) => sum + Number(p.probability), 0);
+    loseItem.probability = Number((100 - winTotal).toFixed(3));
+  }
+};
+
 const saveGlobalProbability = async () => {
-  console.log("🔥 按钮被点击了！准备发送请求！");
-  
-  // 深拷贝一份数据，切断响应式引用
   const payloadData = JSON.parse(JSON.stringify(globalProbabilities.value));
-  
-  // 前端先校验一下总和是否为 100
   const total = payloadData.reduce((sum, p) => sum + Number(p.probability), 0);
   if (Math.abs(total - 100) > 0.1) {
     return ElMessage.error(`保存失败：当前概率总和为 ${total.toFixed(2)}%，必须等于 100%`);
@@ -239,16 +292,16 @@ const saveGlobalProbability = async () => {
   
   savingGlobal.value = true;
   try {
-    // 🆕 连同 currentCost 一起发给后端
+    // 🆕 传递 gameName 保存
     const res = await request.post('/admin/probability', { 
       probability: payloadData,
-      cost: currentCost.value
+      gameName: currentGame.value.name
     });
     if (res.data.success) {
-      ElMessage.success(`已成功更新 ${currentCost.value}元 奖池`);
+      ElMessage.success(`已成功更新 ${currentGame.value.name} 的奖池`);
+      globalProbVisible.value = false;
     }
   } catch (e) { 
-    console.error("❌ 保存失败报错：", e);
     ElMessage.error(e.response?.data?.error || '保存失败'); 
   } finally { 
     savingGlobal.value = false; 
@@ -280,29 +333,84 @@ const currentUser = ref({});
 const userProbabilities = ref([]);
 const savingUserProb = ref(false);
 
+const currentUserTotalWeight = computed(() => {
+  return userProbabilities.value.reduce((sum, p) => sum + Number(p.probability || 0), 0);
+});
+
+const handleUserSliderChange = (index, newValue) => {
+  const list = userProbabilities.value;
+  if (list[index].name === '不中奖' || list[index].name === 'ハズレ') {
+    if (newValue > 100) list[index].probability = 100;
+    return;
+  }
+
+  let otherWinTotal = 0;
+  for (let i = 0; i < list.length; i++) {
+    if (i !== index && list[i].name !== '不中奖' && list[i].name !== 'ハズレ') {
+      otherWinTotal += Number(list[i].probability);
+    }
+  }
+
+  if (otherWinTotal + newValue > 100) {
+    list[index].probability = Number((100 - otherWinTotal).toFixed(3));
+  }
+
+  const loseItem = list.find(p => p.name === '不中奖' || p.name === 'ハズレ');
+  if (loseItem) {
+    const winTotal = list.filter(p => p.name !== '不中奖' && p.name !== 'ハズレ')
+                         .reduce((sum, p) => sum + Number(p.probability), 0);
+    loseItem.probability = Number((100 - winTotal).toFixed(3));
+  }
+};
+
+// 🆕 打开抽屉
 const openUserProbModal = (user) => {
   currentUser.value = user;
-  if (user.custom_probability) {
-    userProbabilities.value = JSON.parse(user.custom_probability).map(p => ({ ...p, probability: Number(p.probability) }));
-  } else {
-    userProbabilities.value = [];
+  userProbabilities.value = [];
+  
+  // 如果没选中游戏，默认给个空提示
+  if (!currentGame.value.name) {
+    ElMessage.warning('请先在左侧点击一个游戏进行调频');
+    return;
   }
+  
+  if (user.custom_probability) {
+    try {
+      const parsed = JSON.parse(user.custom_probability);
+      // 如果是对象，取出当前游戏名的专属
+      if (parsed && !Array.isArray(parsed) && parsed[currentGame.value.name]) {
+        userProbabilities.value = parsed[currentGame.value.name];
+      }
+    } catch (e) { console.error(e); }
+  }
+  
   drawerVisible.value = true;
 };
 
 const initUserProb = () => {
-  // 将当前选中的全局奖池数据复制给专属概率
-  userProbabilities.value = globalProbabilities.value.map(p => ({ ...p }));
+  userProbabilities.value = JSON.parse(JSON.stringify(globalProbabilities.value));
 };
 
 const saveUserProb = async () => {
+  if (Math.abs(currentUserTotalWeight.value - 100) > 0.1) {
+    return ElMessage.error(`保存失败：概率总和必须等于 100%，当前为 ${currentUserTotalWeight.value.toFixed(2)}%`);
+  }
+
   savingUserProb.value = true;
   try {
-    // 核心修复：过滤掉概率为 0 的垃圾数据，只把生效的传给后端
-    const validProbabilities = userProbabilities.value.filter(p => Number(p.probability) > 0);
-    
-    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: validProbabilities }); 
-    ElMessage.success('该用户专属概率已生效');
+    let existingConfig = {};
+    if (currentUser.value.custom_probability) {
+      try {
+        const parsed = JSON.parse(currentUser.value.custom_probability);
+        if (!Array.isArray(parsed)) existingConfig = parsed;
+      } catch (e) {}
+    }
+
+    // 🆕 按游戏名存入对象
+    existingConfig[currentGame.value.name] = userProbabilities.value.filter(p => Number(p.probability) > 0);
+
+    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: existingConfig }); 
+    ElMessage.success(`该用户 ${currentGame.value.name} 专属概率已生效`);
     drawerVisible.value = false;
     fetchAllUsers();
   } catch (e) { ElMessage.error('保存失败'); } 
@@ -311,8 +419,20 @@ const saveUserProb = async () => {
 
 const clearUserProb = async () => {
   try {
-    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: null }); 
-    ElMessage.success('已恢复全局默认');
+    let existingConfig = {};
+    if (currentUser.value.custom_probability) {
+      try {
+        const parsed = JSON.parse(currentUser.value.custom_probability);
+        if (!Array.isArray(parsed)) existingConfig = parsed;
+      } catch (e) {}
+    }
+
+    delete existingConfig[currentGame.value.name];
+
+    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { 
+      probability: Object.keys(existingConfig).length > 0 ? existingConfig : null 
+    }); 
+    ElMessage.success('已清空该游戏专属概率');
     drawerVisible.value = false;
     fetchAllUsers();
   } catch (e) { ElMessage.error('操作失败'); }
@@ -344,7 +464,6 @@ const submitRecharge = async () => {
 };
 
 onMounted(() => {
-  fetchGlobalProb();
   fetchOnlineUsers();
   fetchAllUsers();
   setInterval(fetchOnlineUsers, 10000);
@@ -352,12 +471,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.dashboard-page {
-  padding: 0;
-  background: transparent;
-}
-
-/* 顶部数据卡片 */
+.dashboard-page { padding: 0; background: transparent; }
 .data-cards { margin-bottom: 20px; }
 .data-card { border-radius: 16px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.03); transition: transform 0.2s; }
 .data-card:hover { transform: translateY(-2px); }
@@ -367,30 +481,25 @@ onMounted(() => {
 .text-blue { color: #0ea5e9; }
 .text-red { color: #e83862; }
 .card-footer { font-size: 12px; color: #94a3b8; margin-top: 10px; }
-
-/* 工作卡片 */
 .work-card { border-radius: 16px; border: none; box-shadow: 0 4px 20px rgba(0,0,0,0.03); }
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .card-title-icon { font-size: 16px; font-weight: bold; color: #1e293b; }
 
-/* 概率滚动容器 */
-.prob-scroll-container {
-  max-height: 520px;
-  overflow-y: auto;
-  padding-right: 10px;
-}
-.prob-scroll-container::-webkit-scrollbar { width: 6px; }
-.prob-scroll-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-.prob-scroll-container::-webkit-scrollbar-track { background: transparent; }
+/* 8个游戏方块布局 */
+.game-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 5px; }
+.game-item { display: flex; align-items: center; gap: 10px; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; }
+.game-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); border-color: #e83862; }
+.game-icon { font-size: 24px; }
+.game-name { font-weight: bold; color: #1e293b; font-size: 14px; }
+.game-price { font-size: 12px; color: #e83862; font-weight: 500; margin-top: 2px; }
 
-/* 调频滑块 */
+/* 弹窗滚动区 */
 .prob-item { margin-bottom: 20px; padding: 15px; background: #f8fafc; border-radius: 12px; border: 1px solid #f1f5f9; }
 .prob-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
 .prob-name { font-weight: bold; color: #1e293b; }
 .prob-value { color: #64748b; font-size: 13px; font-weight: 500; }
-.prob-input { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
 
-/* 抽屉面板 */
+/* 抽屉 */
 .drawer-content { padding: 10px; }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px dashed #e2e8f0; }
 .empty-prob { margin-top: 50px; }
