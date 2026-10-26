@@ -213,6 +213,8 @@ const fetchGlobalProb = async () => {
 const saveGlobalProbability = async () => {
   savingGlobal.value = true;
   try {
+    // 注意：如果 request.js 里配置了 baseURL: '/api'，这里保持 '/admin/probability' 即可
+    // 如果没配置，请确保浏览器请求发出时是 /api/admin/probability
     await request.post('/admin/probability', { probability: globalProbabilities.value });
     ElMessage.success('全局概率已生效');
   } catch (e) { ElMessage.error(e.response?.data?.error || '保存失败'); } 
