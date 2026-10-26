@@ -2,8 +2,15 @@ import axios from 'axios';
 
 // 创建 axios 实例
 const request = axios.create({
-  baseURL: '/api', // 所有请求都会自动加上 /api 前缀
-  timeout: 5000    // 请求超时时间
+  // 🆕 直接写死你的公网穿透地址
+  baseURL: 'https://ripe-revisions-observer-reads.trycloudflare.com/api', 
+  timeout: 15000, // 跨公网请求，超时时间设长一点
+  headers: {
+    'Content-Type': 'application/json',
+    // 🆕 跳过 Cloudflare 的跨域安全拦截
+    'cf-skip-browser-warning': 'true',
+    'bypass-tunnel-reminder': 'true'
+  }
 });
 
 // 请求拦截器：每次请求前自动带上 Token
