@@ -34,11 +34,11 @@
           <template #header>
             <div class="card-header">
               <span class="card-title-icon">🎯 全局动态概率调控</span>
-              <el-button type="primary" size="small" color="#e83862" @click="saveGlobalProbability" :loading="savingGlobal">保存并生效</el-button>
+              <!-- 注意：这里去掉了 :loading，防止被 watch 干扰导致点击无效 -->
+              <el-button type="primary" size="small" color="#e83862" @click="saveGlobalProbability">保存并生效</el-button>
             </div>
           </template>
           
-          <!-- 核心：滚动容器，解决 16 个档位把页面撑爆的问题 -->
           <div class="prob-scroll-container">
             <div v-for="(item, index) in globalProbabilities" :key="index" class="prob-item">
               <div class="prob-header">
@@ -184,7 +184,6 @@ const router = useRouter();
 const globalProbabilities = ref([]);
 const savingGlobal = ref(false);
 
-// 自动计算总和，确保精确
 watch(globalProbabilities, (newVal) => {
   if (!newVal.length) return;
   const loseItem = newVal.find(p => p.name === '不中奖' || p.name === 'ハズレ');
@@ -200,7 +199,7 @@ watch(globalProbabilities, (newVal) => {
 
 const fetchGlobalProb = async () => {
   try {
-    const res = await request.get('/admin/probability');
+    const res = await request.get('/api/admin/probability'); // 补齐 /api 前缀
     if (res.data.success) {
       globalProbabilities.value = res.data.probability.map(p => ({ 
         ...p, 
@@ -211,14 +210,25 @@ const fetchGlobalProb = async () => {
 };
 
 const saveGlobalProbability = async () => {
+  console.log("🔥 按钮被点击了！准备发送请求！");
+  
+  // 核心：深拷贝一份数据，切断响应式引用，避免数据在发送瞬间被 watch 修改
+  const payloadData = JSON.parse(JSON.stringify(globalProbabilities.value));
+  console.log("📦 发送的数据：", payloadData);
+
   savingGlobal.value = true;
   try {
-    // 注意：如果 request.js 里配置了 baseURL: '/api'，这里保持 '/admin/probability' 即可
-    // 如果没配置，请确保浏览器请求发出时是 /api/admin/probability
-    await request.post('/admin/probability', { probability: globalProbabilities.value });
-    ElMessage.success('全局概率已生效');
-  } catch (e) { ElMessage.error(e.response?.data?.error || '保存失败'); } 
-  finally { savingGlobal.value = false; }
+    // 补齐 /api 前缀
+    const res = await request.post('/api/admin/probability', { probability: payloadData });
+    if (res.data.success) {
+      ElMessage.success('全局概率已生效');
+    }
+  } catch (e) { 
+    console.error("❌ 保存失败报错：", e);
+    ElMessage.error(e.response?.data?.error || '保存失败'); 
+  } finally { 
+    savingGlobal.value = false; 
+  }
 };
 
 // ====== 用户数据 ======
@@ -228,14 +238,14 @@ const keyword = ref('');
 
 const fetchOnlineUsers = async () => {
   try {
-    const res = await request.get('/admin/online-users');
+    const res = await request.get('/api/admin/online-users'); // 补齐 /api 前缀
     if (res.data.success) onlineUsers.value = res.data.users;
   } catch (e) { console.error(e); }
 };
 
 const fetchAllUsers = async () => {
   try {
-    const res = await request.get(`/admin/users?keyword=${keyword.value}`);
+    const res = await request.get(`/api/admin/users?keyword=${keyword.value}`); // 补齐 /api 前缀
     if (res.data.success) allUsersList.value = res.data.users;
   } catch (e) { ElMessage.error('获取用户失败'); }
 };
@@ -263,7 +273,7 @@ const initUserProb = () => {
 const saveUserProb = async () => {
   savingUserProb.value = true;
   try {
-    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: userProbabilities.value });
+    await request.post(`/api/admin/set-user-probability/${currentUser.value.id}`, { probability: userProbabilities.value }); // 补齐 /api 前缀
     ElMessage.success('该用户专属概率已生效');
     drawerVisible.value = false;
     fetchAllUsers();
@@ -273,7 +283,7 @@ const saveUserProb = async () => {
 
 const clearUserProb = async () => {
   try {
-    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: null });
+    await request.post(`/api/admin/set-user-probability/${currentUser.value.id}`, { probability: null }); // 补齐 /api 前缀
     ElMessage.success('已恢复全局默认');
     drawerVisible.value = false;
     fetchAllUsers();
@@ -295,7 +305,7 @@ const submitRecharge = async () => {
   if (rechargeAmount.value === 0) return ElMessage.warning('金额不能为0');
   savingRecharge.value = true;
   try {
-    const res = await request.post('/admin/recharge', { userId: currentUser.value.id, amount: rechargeAmount.value });
+    const res = await request.post('/api/admin/recharge', { userId: currentUser.value.id, amount: rechargeAmount.value }); // 补齐 /api 前缀
     if (res.data.success) {
       ElMessage.success(res.data.message);
       rechargeVisible.value = false;
