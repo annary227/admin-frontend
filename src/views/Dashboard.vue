@@ -33,7 +33,19 @@
         <el-card shadow="never" class="work-card">
           <template #header>
             <div class="card-header">
-              <span class="card-title-icon">🎯 全局动态概率调控</span>
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <span class="card-title-icon">🎯 全局动态概率调控</span>
+                <!-- 🆕 价格选择器 -->
+                <el-select v-model="currentCost" size="small" style="width: 130px" @change="fetchGlobalProb">
+                  <el-option label="50元奖池" :value="50" />
+                  <el-option label="100元奖池" :value="100" />
+                  <el-option label="200元奖池" :value="200" />
+                  <el-option label="300元奖池" :value="300" />
+                  <el-option label="500元奖池" :value="500" />
+                  <el-option label="1000元奖池" :value="1000" />
+                </el-select>
+              </div>
+              <!-- 注意：去掉了 :loading，防止被 watch 干扰导致点击无效 -->
               <el-button type="primary" size="small" color="#e83862" @click="saveGlobalProbability">保存并生效</el-button>
             </div>
           </template>
@@ -182,6 +194,7 @@ const router = useRouter();
 // ====== 全局概率逻辑 ======
 const globalProbabilities = ref([]);
 const savingGlobal = ref(false);
+const currentCost = ref(500); // 🆕 默认当前选中的奖池价格（500元）
 
 watch(globalProbabilities, (newVal) => {
   if (!newVal.length) return;
@@ -198,8 +211,12 @@ watch(globalProbabilities, (newVal) => {
 
 const fetchGlobalProb = async () => {
   try {
-    const res = await request.get('/admin/probability'); 
+    // 🆕 动态带上当前选中的价格
+    const res = await request.get(`/admin/probability?cost=${currentCost.value}`); 
     if (res.data.success) {
+      if (res.data.probability.length === 0) {
+        ElMessage.warning(`${currentCost.value}元奖池尚未配置，请去数据库添加`);
+      }
       globalProbabilities.value = res.data.probability.map(p => ({ 
         ...p, 
         probability: Number(p.probability) 
@@ -211,14 +228,24 @@ const fetchGlobalProb = async () => {
 const saveGlobalProbability = async () => {
   console.log("🔥 按钮被点击了！准备发送请求！");
   
+  // 深拷贝一份数据，切断响应式引用
   const payloadData = JSON.parse(JSON.stringify(globalProbabilities.value));
-  console.log("📦 发送的数据：", payloadData);
-
+  
+  // 前端先校验一下总和是否为 100
+  const total = payloadData.reduce((sum, p) => sum + Number(p.probability), 0);
+  if (Math.abs(total - 100) > 0.1) {
+    return ElMessage.error(`保存失败：当前概率总和为 ${total.toFixed(2)}%，必须等于 100%`);
+  }
+  
   savingGlobal.value = true;
   try {
-    const res = await request.post('/admin/probability', { probability: payloadData });
+    // 🆕 连同 currentCost 一起发给后端
+    const res = await request.post('/admin/probability', { 
+      probability: payloadData,
+      cost: currentCost.value
+    });
     if (res.data.success) {
-      ElMessage.success('全局概率已生效');
+      ElMessage.success(`已成功更新 ${currentCost.value}元 奖池`);
     }
   } catch (e) { 
     console.error("❌ 保存失败报错：", e);
@@ -264,13 +291,14 @@ const openUserProbModal = (user) => {
 };
 
 const initUserProb = () => {
+  // 将当前选中的全局奖池数据复制给专属概率
   userProbabilities.value = globalProbabilities.value.map(p => ({ ...p }));
 };
 
 const saveUserProb = async () => {
   savingUserProb.value = true;
   try {
-    // 🔥 核心修复：过滤掉概率为 0 的垃圾数据，只把生效的传给后端
+    // 核心修复：过滤掉概率为 0 的垃圾数据，只把生效的传给后端
     const validProbabilities = userProbabilities.value.filter(p => Number(p.probability) > 0);
     
     await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: validProbabilities }); 
