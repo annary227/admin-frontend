@@ -72,30 +72,6 @@
           </template>
         </el-table-column>
         
-        <el-table-column prop="bank_name" label="银行名称" width="120">
-          <template #default="scope">
-            <span class="text-gray">{{ scope.row.bank_name || '-' }}</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="branch_name" label="支店名称" width="120">
-          <template #default="scope">
-            <span class="text-gray">{{ scope.row.branch_name || '-' }}</span>
-          </template>
-        </el-table-column>
-
-        <el-table-column prop="branch_code" label="支店号" width="100">
-          <template #default="scope">
-            <span class="text-gray">{{ scope.row.branch_code || '-' }}</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="account_number" label="口座番号" width="150">
-          <template #default="scope">
-            <span class="text-gray">{{ scope.row.account_number || '-' }}</span>
-          </template>
-        </el-table-column>
-        
         <el-table-column label="账户余额 (¥)" width="150" align="center">
           <template #default="scope">
             <span class="balance-text">{{ scope.row.balance.toLocaleString() }}</span>
@@ -107,13 +83,13 @@
             <div class="action-group">
               <button class="btn-add" @click="openRechargeModal(scope.row, 1)">加币</button>
               <button class="btn-sub" @click="openRechargeModal(scope.row, -1)">扣币</button>
-              <button class="btn-edit" @click="openUserProbModal(scope.row)">调频</button>
+              <button class="btn-edit" @click="openUserProbModal(scope.row)">风控</button>
             </div>
           </template>
         </el-table-column>
       </el-table>
 
-      <!-- 🆕 真正的后端分页器 -->
+      <!-- 真正的后端分页器 -->
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="currentPage"
@@ -128,26 +104,32 @@
       </div>
     </div>
 
-    <!-- 调频抽屉 -->
-    <el-drawer v-model="drawerVisible" :title="`风控调频 - ${currentUser.username}`" size="400px">
+    <!-- 🆕 极简风控抽屉 -->
+    <el-drawer v-model="drawerVisible" :title="`风控操作 - ${currentUser.username}`" size="380px">
       <div class="drawer-content">
-        <div v-if="!userProbabilities.length" class="empty-prob">
-          <el-empty description="该用户目前使用全局概率" :image-size="100" />
-          <el-button type="primary" style="width: 100%;" @click="initUserProb">开启专属调频</el-button>
+        <el-alert
+          title="高风险操作提示"
+          type="warning"
+          :closable="false"
+          show-icon
+          style="margin-bottom: 20px;"
+        >
+          开启封锁后，该用户无论玩什么游戏，都只会抽到最差的奖品（全盘不中奖）。
+        </el-alert>
+
+        <div class="control-switch-box">
+          <span class="label">全盘封锁 (只输不赢)</span>
+          <el-switch 
+            v-model="isUserBlocked" 
+            active-text="已封锁"
+            inactive-text="正常"
+            style="--el-switch-on-color: #ef4444; --el-switch-off-color: #10b981;"
+            @change="handleBlockChange"
+          />
         </div>
-        <div v-else class="user-prob-list">
-          <div v-for="(item, index) in userProbabilities" :key="index" class="prob-item">
-            <div class="prob-header">
-              <span class="prob-name">{{ item.name }}</span>
-              <span class="prob-value">¥{{ item.value.toLocaleString() }}</span>
-            </div>
-            <el-slider v-model="item.probability" :min="0" :max="100" :step="0.001" />
-            <div style="text-align:right; font-weight:bold; color:#e83862; margin-top:5px;">{{ item.probability }}%</div>
-          </div>
-          <div style="margin-top:40px; display:flex; gap:10px;">
-            <el-button style="flex:1;" @click="clearUserProb">恢复全局</el-button>
-            <el-button type="primary" style="flex:1;" @click="saveUserProb" :loading="savingUserProb">保存生效</el-button>
-          </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: #64748b; font-size: 13px;">
+          当前状态：{{ isUserBlocked ? '【黑名单】系统将拦截该用户的任何大奖' : '【正常】正常读取系统全局概率' }}
         </div>
       </div>
     </el-drawer>
@@ -177,13 +159,10 @@ import request from '../api/request';
 
 const usersList = ref([]);
 const loading = ref(false);
-const globalProbabilities = ref([]);
 const hideBots = ref(false); 
-
-// 🆕 分页状态
+const total = ref(0); 
 const currentPage = ref(1);
 const pageSize = ref(20);
-const total = ref(0); // 接收后端返回的总条数
 
 const searchForm = ref({
   username: '',
@@ -194,7 +173,6 @@ const fetchUsers = async () => {
   loading.value = true;
   try {
     const { username, userId } = searchForm.value;
-    // 🆕 请求时带上 page 和 pageSize
     const res = await request.get('/admin/users', {
       params: {
         username,
@@ -206,19 +184,17 @@ const fetchUsers = async () => {
     });
     if (res.data.success) {
       usersList.value = res.data.users;
-      total.value = res.data.total; // 🆕 赋值总数
+      total.value = res.data.total;
     }
   } catch (e) { ElMessage.error('获取用户失败'); }
   finally { loading.value = false; }
 };
 
-// 🆕 搜索时重置回第一页
 const handleSearch = () => {
   currentPage.value = 1;
   fetchUsers();
 };
 
-// 🆕 切换每页条数时重置回第一页
 const handleSizeChange = () => {
   currentPage.value = 1;
   fetchUsers();
@@ -229,13 +205,6 @@ const resetSearch = () => {
   hideBots.value = false; 
   currentPage.value = 1;
   fetchUsers();
-};
-
-const fetchGlobalProb = async () => {
-  try {
-    const res = await request.get('/admin/probability');
-    if (res.data.success) globalProbabilities.value = res.data.probability;
-  } catch (e) { console.error(e); }
 };
 
 const formatTime = (timeStr) => {
@@ -253,45 +222,48 @@ const tableRowClassName = ({ rowIndex }) => {
   return rowIndex % 2 === 1 ? 'dark-row' : 'light-row';
 };
 
+// ==========================================
+// 🆕 风控逻辑
+// ==========================================
 const drawerVisible = ref(false);
 const currentUser = ref({});
-const userProbabilities = ref([]);
-const savingUserProb = ref(false);
+const isUserBlocked = ref(false);
 
 const openUserProbModal = (user) => {
   currentUser.value = user;
   if (user.custom_probability) {
-    userProbabilities.value = JSON.parse(user.custom_probability).map(p => ({ ...p, probability: Number(p.probability) }));
+    try {
+      const prob = JSON.parse(user.custom_probability);
+      isUserBlocked.value = prob.length === 1 && prob[0].name === 'BLOCKED';
+    } catch(e) {
+      isUserBlocked.value = false;
+    }
   } else {
-    userProbabilities.value = [];
+    isUserBlocked.value = false;
   }
   drawerVisible.value = true;
 };
 
-const initUserProb = () => {
-  userProbabilities.value = globalProbabilities.value.map(p => ({ ...p, probability: Number(p.probability) }));
-};
-
-const saveUserProb = async () => {
-  savingUserProb.value = true;
+// 🆕 暴力开关
+const handleBlockChange = async (val) => {
   try {
-    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: userProbabilities.value });
-    ElMessage.success('该用户专属概率已生效');
-    drawerVisible.value = false;
+    let probability = null;
+    if (val) {
+      probability = [{ name: 'BLOCKED', value: 0, probability: 100 }];
+    }
+    
+    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability });
+    ElMessage.success(val ? '已开启黑名单封锁！' : '已恢复该用户的正常概率！');
     fetchUsers();
-  } catch (e) { ElMessage.error('保存失败'); } 
-  finally { savingUserProb.value = false; }
+  } catch (error) {
+    ElMessage.error('风控操作失败');
+    isUserBlocked.value = !val; // 失败回滚状态
+  }
 };
 
-const clearUserProb = async () => {
-  try {
-    await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability: null });
-    ElMessage.success('已恢复全局默认');
-    drawerVisible.value = false;
-    fetchUsers();
-  } catch (e) { ElMessage.error('操作失败'); }
-};
-
+// ==========================================
+// 资金操作逻辑
+// ==========================================
 const rechargeVisible = ref(false);
 const rechargeAmount = ref(0);
 const savingRecharge = ref(false);
@@ -318,11 +290,11 @@ const submitRecharge = async () => {
 
 onMounted(() => {
   fetchUsers();
-  fetchGlobalProb();
 });
 </script>
 
 <style scoped>
+/* 保持之前的暗黑风格不变 */
 .dark-admin-page { background-color: #0b1120; min-height: 100vh; padding: 24px; color: #94a3b8; font-family: 'Inter', sans-serif; }
 .search-panel { background: #151e2e; border-radius: 12px; padding: 24px; border: 1px solid #1e293b; margin-bottom: 24px; }
 .panel-title h2 { color: #f8fafc; margin: 0 0 8px 0; font-size: 20px; }
@@ -337,31 +309,10 @@ onMounted(() => {
 .action-btns .reset-btn { background: #1e293b; border-color: #334155; color: #cbd5e1; }
 .table-panel { background: #151e2e; border-radius: 12px; padding: 1px; border: 1px solid #1e293b; overflow: hidden; }
 
-/* 🆕 分页器样式，适配暗黑主题 */
-.pagination-wrapper {
-  padding: 20px;
-  display: flex;
-  justify-content: flex-end;
-  background: #151e2e;
-  border-top: 1px solid #1e293b;
-}
-:deep(.el-pagination) {
-  --el-pagination-bg-color: transparent;
-  --el-pagination-text-color: #94a3b8;
-  --el-pagination-button-bg-color: #1e293b;
-  --el-pagination-button-color: #cbd5e1;
-  --el-pagination-hover-color: #e83862;
-  --el-pagination-button-disabled-color: #475569;
-  --el-pagination-button-disabled-bg-color: #0f172a;
-}
-:deep(.el-pagination.is-background .el-pager li) {
-  background-color: #1e293b;
-  color: #cbd5e1;
-}
-:deep(.el-pagination.is-background .el-pager li.is-active) {
-  background-color: #e83862;
-  color: white;
-}
+.pagination-wrapper { padding: 20px; display: flex; justify-content: flex-end; background: #151e2e; border-top: 1px solid #1e293b; }
+:deep(.el-pagination) { --el-pagination-bg-color: transparent; --el-pagination-text-color: #94a3b8; --el-pagination-button-bg-color: #1e293b; --el-pagination-button-color: #cbd5e1; --el-pagination-hover-color: #e83862; --el-pagination-button-disabled-color: #475569; --el-pagination-button-disabled-bg-color: #0f172a; }
+:deep(.el-pagination.is-background .el-pager li) { background-color: #1e293b; color: #cbd5e1; }
+:deep(.el-pagination.is-background .el-pager li.is-active) { background-color: #e83862; color: white; }
 
 :deep(.el-table) { background-color: transparent; color: #cbd5e1; --el-table-border-color: #1e293b; --el-table-header-bg-color: #0f172a; --el-table-row-hover-bg-color: #1e293b; }
 :deep(.el-table th.el-table__cell) { background-color: #0f172a; color: #94a3b8; border-bottom: 1px solid #1e293b; font-weight: 500; padding: 16px 0; }
@@ -387,10 +338,20 @@ onMounted(() => {
 .btn-sub:hover { background: rgba(239, 68, 68, 0.1); }
 .btn-edit { color: #eab308; border-color: rgba(234, 179, 8, 0.4); }
 .btn-edit:hover { background: rgba(234, 179, 8, 0.1); }
+
+/* 🆕 极简抽屉样式 */
 .drawer-content { padding: 10px; }
-.empty-prob { margin-top: 50px; }
-.user-prob-list .prob-item { margin-bottom: 15px; background: #f8fafc; padding: 15px; border-radius: 10px; }
-.prob-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
-.prob-name { font-weight: bold; color: #1e293b; }
-.prob-value { color: #64748b; font-size: 13px; }
+.control-switch-box {
+  background: #f1f5f9;
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.control-switch-box .label {
+  font-weight: bold;
+  color: #1e293b;
+  font-size: 15px;
+}
 </style>
