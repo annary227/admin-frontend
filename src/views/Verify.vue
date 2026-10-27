@@ -1,86 +1,91 @@
 <template>
-  <div class="verify-page">
-    <!-- 🆕 高级工具栏 -->
+  <div class="dark-page">
+    <!-- 极简工具栏 -->
     <div class="toolbar">
-      <div class="toolbar-title">
+      <div class="title-area">
         <h2>实名认证审核 (KYC)</h2>
-        <p>审核用户的实名信息及绑定的收款银行账户</p>
+        <span class="subtitle">审核用户的实名信息及绑定的收款银行账户</span>
       </div>
-      <el-button type="primary" color="#e83862" icon="Refresh" @click="fetchPendingUsers" :loading="loading" round>
+      <el-button type="primary" color="#e83862" icon="Refresh" @click="fetchPendingUsers" :loading="loading">
         刷新列表
       </el-button>
     </div>
 
-    <!-- 🆕 高级表格卡片 -->
-    <el-card shadow="never" class="table-card">
+    <!-- 深色数据表 -->
+    <div class="table-container">
       <el-table 
         :data="pendingUsers" 
         v-loading="loading" 
         size="large" 
-        :header-cell-style="{ background: '#f8fafc', color: '#64748b', fontWeight: 'bold', borderBottom: '2px solid #f1f5f9' }"
-        :row-style="{ height: '80px' }"
+        :row-class-name="tableRowClassName"
       >
         <el-table-column prop="id" label="ID" width="80" align="center">
           <template #default="scope">
-            <span style="font-family: monospace; font-weight: bold; color: #94a3b8;">#{{ scope.row.id }}</span>
+            <span style="font-family: monospace; font-weight: bold; color: #64748b;">#{{ scope.row.id }}</span>
           </template>
         </el-table-column>
 
-        <el-table-column prop="username" label="账号" min-width="180">
+        <el-table-column prop="username" label="账号" min-width="160">
           <template #default="scope">
-            <div style="font-weight: 900; color: #1e293b; font-size: 15px;">{{ scope.row.username }}</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <el-avatar :size="24" style="background: #334155; color: #94a3b8; font-weight: bold;">
+                {{ scope.row.username.charAt(0).toUpperCase() }}
+              </el-avatar>
+              <span style="font-weight: 600; color: #f8fafc;">{{ scope.row.username }}</span>
+            </div>
           </template>
         </el-table-column>
         
         <el-table-column prop="real_name" label="真实姓名" width="140">
           <template #default="scope">
-            <span style="font-weight: bold; color: #e83862; font-size: 15px;">{{ scope.row.real_name || '未填写' }}</span>
+            <span style="font-weight: bold; color: #f43f5e; font-size: 15px;">{{ scope.row.real_name || '未填写' }}</span>
           </template>
         </el-table-column>
         
         <el-table-column prop="id_number" label="证件号码" width="160">
           <template #default="scope">
-            <span style="font-family: monospace; font-size: 14px; color: #475569;">{{ scope.row.id_number || '未填写' }}</span>
+            <span style="font-family: monospace; font-size: 13px; color: #cbd5e1;">{{ scope.row.id_number || '未填写' }}</span>
           </template>
         </el-table-column>
         
-        <!-- 🆕 核心：银行信息卡片化 -->
+        <!-- 深色化银行卡信息 -->
         <el-table-column label="绑定银行卡信息" min-width="300">
           <template #default="scope">
-            <div class="bank-info" v-if="scope.row.bank_name && scope.row.account_number">
+            <div class="dark-bank-card" v-if="scope.row.bank_name && scope.row.account_number">
               <div class="bank-row">
-                <span class="label">银行：</span> {{ scope.row.bank_name }}
+                <span class="label">银行</span>
+                <span class="value">{{ scope.row.bank_name }}</span>
               </div>
               <div class="bank-row">
-                <span class="label">支店：</span> {{ scope.row.branch_name }} 
-                <span class="branch-code">[ {{ scope.row.branch_code || '无编号' }} ]</span>
+                <span class="label">支店</span>
+                <span class="value">{{ scope.row.branch_name }} 
+                  <span class="branch-code">{{ scope.row.branch_code || '无编号' }}</span>
+                </span>
               </div>
               <div class="bank-row">
-                <span class="label">类型：</span> 
-                <el-tag size="small" :type="scope.row.account_type === 'ordinary' ? 'info' : 'warning'" effect="plain" round>
-                  {{ scope.row.account_type === 'ordinary' ? '普通' : '当座' }}
-                </el-tag>
+                <span class="label">类型</span>
+                <span class="value">{{ scope.row.account_type === 'ordinary' ? '普通' : '当座' }}</span>
               </div>
               <div class="bank-row">
-                <span class="label">账号：</span> <span style="font-family: monospace; font-weight: bold;">{{ scope.row.account_number }}</span>
+                <span class="label">账号</span>
+                <span class="value" style="font-family: monospace; color: #38bdf8; font-weight: bold;">{{ scope.row.account_number }}</span>
               </div>
               <div class="bank-row">
-                <span class="label">户名：</span> {{ scope.row.account_name }}
+                <span class="label">户名</span>
+                <span class="value">{{ scope.row.account_name }}</span>
               </div>
             </div>
-            <div v-else class="empty-bank">
-              <el-tag type="danger" effect="plain" round>⚠️ 未绑定银行卡</el-tag>
-            </div>
+            <span v-else style="color: #ef4444; font-size: 13px; border: 1px dashed #ef4444; padding: 2px 8px; border-radius: 4px;">未绑定</span>
           </template>
         </el-table-column>
 
         <!-- 当前状态列 -->
         <el-table-column label="当前状态" width="120" align="center">
           <template #default="scope">
-            <el-tag v-if="scope.row.verify_status === 0" type="info" effect="plain" round>未实名</el-tag>
-            <el-tag v-else-if="scope.row.verify_status === 1" type="warning" effect="light" round>审核中</el-tag>
-            <el-tag v-else-if="scope.row.verify_status === 2" type="success" effect="light" round>已通过</el-tag>
-            <el-tag v-else-if="scope.row.verify_status === 3" type="danger" effect="plain" round>已驳回</el-tag>
+            <el-tag v-if="scope.row.verify_status === 0" type="info" effect="dark" round>未实名</el-tag>
+            <el-tag v-else-if="scope.row.verify_status === 1" type="warning" effect="dark" round>审核中</el-tag>
+            <el-tag v-else-if="scope.row.verify_status === 2" type="success" effect="dark" round>已通过</el-tag>
+            <el-tag v-else-if="scope.row.verify_status === 3" type="danger" effect="dark" round>已驳回</el-tag>
           </template>
         </el-table-column>
 
@@ -90,27 +95,33 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="180" fixed="right" align="center">
+        <el-table-column label="操作" width="160" fixed="right" align="center">
           <template #default="scope">
             <!-- 待审核状态 -->
-            <div v-if="scope.row.verify_status === 1" style="display: flex; gap: 8px; justify-content: center;">
-              <el-button type="success" size="small" round @click="handleApprove(scope.row.id, 2)">通过</el-button>
-              <el-button type="danger" size="small" plain round @click="handleApprove(scope.row.id, 3)">驳回</el-button>
+            <div v-if="scope.row.verify_status === 1" style="display: flex; flex-direction: column; gap: 6px;">
+              <el-button type="success" size="small" @click="handleApprove(scope.row.id, 2)">通过</el-button>
+              <el-button type="danger" size="small" plain @click="handleApprove(scope.row.id, 3)">驳回</el-button>
             </div>
             <!-- 已通过状态 -->
             <div v-else-if="scope.row.verify_status === 2">
-              <el-button type="warning" size="small" plain round @click="handleApprove(scope.row.id, 3)">撤销并驳回</el-button>
+              <el-button type="warning" size="small" plain @click="handleApprove(scope.row.id, 3)">撤销并驳回</el-button>
             </div>
             <!-- 已驳回状态 -->
             <div v-else-if="scope.row.verify_status === 3">
-              <el-button type="success" size="small" plain round @click="handleApprove(scope.row.id, 2)">重新通过</el-button>
+              <el-button type="success" size="small" plain @click="handleApprove(scope.row.id, 2)">重新通过</el-button>
             </div>
+            <span v-else style="color: #475569; font-size: 13px;">无操作</span>
           </template>
         </el-table-column>
       </el-table>
       
-      <el-empty v-if="pendingUsers.length === 0 && !loading" description="当前没有待审核的实名申请" :image-size="100" />
-    </el-card>
+      <el-empty 
+        v-if="pendingUsers.length === 0 && !loading" 
+        description="当前没有待审核或已通过的实名申请" 
+        :image-size="100"
+        style="padding: 40px 0;"
+      />
+    </div>
   </div>
 </template>
 
@@ -137,20 +148,23 @@ const fetchPendingUsers = async () => {
   }
 };
 
-// 处理审核逻辑 (改为传递数字状态：2代表通过，3代表驳回)
+// 处理审核逻辑
 const handleApprove = async (userId, targetStatus) => {
   const actionText = targetStatus === 2 ? '通过' : '驳回';
   try {
-    await ElMessageBox.confirm(`确认要${actionText}该用户的实名申请吗？`, '操作确认', { 
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消'
-    });
+    await ElMessageBox.confirm(
+      `确认要【${actionText}】该用户的实名申请吗？`, 
+      '操作确认', 
+      { 
+        type: 'warning',
+        confirmButtonText: '确定执行',
+        cancelButtonText: '取消'
+      }
+    );
     
-    // 🆕 修改：传递 targetStatus 给后端
     const res = await request.post(`/admin/approve-verify/${userId}`, { status: targetStatus });
     if (res.data.success) {
-      ElMessage.success(`已${actionText}该申请`);
+      ElMessage.success(`已成功${actionText}该申请`);
       fetchPendingUsers(); // 刷新列表
     }
   } catch (e) {
@@ -164,7 +178,12 @@ const handleApprove = async (userId, targetStatus) => {
 const formatTime = (timeStr) => {
   if (!timeStr) return '-';
   const date = new Date(timeStr);
-  return date.toLocaleString('ja-JP', { hour12: false });
+  return date.toLocaleString('zh-CN', { hour12: false });
+};
+
+// 表格行背景色交替
+const tableRowClassName = ({ rowIndex }) => {
+  return rowIndex % 2 === 0 ? 'dark-row-even' : 'dark-row-odd';
 };
 
 onMounted(() => {
@@ -173,59 +192,85 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.verify-page { 
-  display: flex; 
-  flex-direction: column; 
-  gap: 20px; 
-  padding: 20px; 
-  background: #f4f7f9;
+/* 全局深色底板 */
+.dark-page {
+  padding: 24px;
+  background: #0f172a;
   min-height: 100vh;
+  color: #f8fafc;
 }
 
-/* 顶部工具栏 */
-.toolbar { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  background: #fff; 
-  padding: 20px 24px; 
-  border-radius: 16px; 
-  box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
+/* 工具栏 */
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
 }
-.toolbar-title h2 { margin: 0 0 5px 0; color: #1e293b; font-weight: 900; font-size: 20px; }
-.toolbar-title p { margin: 0; color: #94a3b8; font-size: 13px; }
-
-/* 表格卡片 */
-.table-card { 
-  border-radius: 16px; 
-  border: none; 
-  box-shadow: 0 4px 20px rgba(0,0,0,0.03); 
+.title-area h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #f8fafc;
+}
+.subtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+  display: block;
 }
 
-/* 时间文本 */
+/* 表格容器 */
+.table-container {
+  background: #1e293b;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  overflow: hidden;
+}
+
+/* 覆盖 Element Plus 默认的表格样式，使其变暗 */
+:deep(.el-table) {
+  background-color: transparent;
+  --el-table-border-color: #334155;
+  --el-table-header-bg-color: #0f172a;
+  --el-table-header-text-color: #94a3b8;
+  --el-table-text-color: #cbd5e1;
+  --el-table-row-hover-bg-color: #334155;
+}
+:deep(.el-table th.el-table__cell) {
+  border-bottom: 1px solid #334155;
+  padding: 12px 0;
+}
+:deep(.el-table td.el-table__cell) {
+  border-bottom: 1px solid #334155;
+  padding: 16px 0;
+}
+:deep(.el-table tr) {
+  background-color: transparent !important;
+}
+/* 隔行变色 */
+.dark-row-even { background-color: #1e293b; }
+.dark-row-odd { background-color: #0f172a; }
+
 .time-text { color: #64748b; font-size: 13px; font-family: monospace; }
 
-/* 🆕 银行卡信息排版（卡片化） */
-.bank-info {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: #334155;
+/* 🆕 银行卡信息深色化 */
+.dark-bank-card {
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   max-width: 280px;
 }
 .bank-row { display: flex; align-items: center; }
-.bank-info .label { color: #94a3b8; display: inline-block; width: 45px; flex-shrink: 0; }
-.bank-info .branch-code { color: #e83862; font-weight: 900; margin-left: 4px; }
-
-.empty-bank {
-  padding: 10px;
-  background: #fef2f2;
-  border-radius: 10px;
-  display: inline-block;
+.bank-row .label { color: #64748b; width: 40px; flex-shrink: 0; }
+.bank-row .value { color: #cbd5e1; }
+.branch-code { 
+  background: #7f1d1d; color: #fca5a5; padding: 1px 6px; border-radius: 4px; 
+  font-weight: bold; margin-left: 6px; font-family: monospace;
 }
 </style>
