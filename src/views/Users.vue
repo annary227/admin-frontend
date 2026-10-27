@@ -15,6 +15,17 @@
           <label>编号 ID</label>
           <el-input v-model="searchForm.userId" placeholder="搜索编号" clearable />
         </div>
+        <!-- 🆕 隐藏虚拟机器人开关 -->
+        <div class="form-item" style="flex: 0.5; justify-content: flex-end;">
+          <label style="opacity: 0;">开关</label>
+          <el-switch 
+            v-model="hideBots" 
+            active-text="隐藏虚拟机器人" 
+            inactive-text="显示全部"
+            @change="fetchUsers"
+            style="--el-switch-on-color: #e83862;"
+          />
+        </div>
       </div>
 
       <div class="action-btns">
@@ -49,14 +60,12 @@
           </template>
         </el-table-column>
 
-        <!-- 🆕 新增：注册时间 -->
         <el-table-column prop="created_at" label="注册时间" width="170">
           <template #default="scope">
             <span class="time-text">{{ formatTime(scope.row.created_at) }}</span>
           </template>
         </el-table-column>
 
-        <!-- 🆕 新增：最后登录时间 -->
         <el-table-column prop="last_active_at" label="最后登录时间" width="170">
           <template #default="scope">
             <span class="time-text">{{ formatTime(scope.row.last_active_at) }}</span>
@@ -155,6 +164,7 @@ import request from '../api/request';
 const usersList = ref([]);
 const loading = ref(false);
 const globalProbabilities = ref([]);
+const hideBots = ref(false); // 🆕 默认不隐藏，点开关后隐藏机器人
 
 const searchForm = ref({
   username: '',
@@ -165,7 +175,8 @@ const fetchUsers = async () => {
   loading.value = true;
   try {
     const { username, userId } = searchForm.value;
-    const res = await request.get(`/admin/users?username=${username}&userId=${userId}`);
+    // 🆕 在请求中带上 hideBots 参数
+    const res = await request.get(`/admin/users?username=${username}&userId=${userId}&hideBots=${hideBots.value ? 1 : 0}`);
     if (res.data.success) usersList.value = res.data.users;
   } catch (e) { ElMessage.error('获取用户失败'); }
   finally { loading.value = false; }
@@ -173,6 +184,7 @@ const fetchUsers = async () => {
 
 const resetSearch = () => {
   searchForm.value = { username: '', userId: '' };
+  hideBots.value = false; // 🆕 重置时也把开关关掉
   fetchUsers();
 };
 
@@ -183,7 +195,6 @@ const fetchGlobalProb = async () => {
   } catch (e) { console.error(e); }
 };
 
-// 格式化时间
 const formatTime = (timeStr) => {
   if (!timeStr) return '-';
   return new Date(timeStr).toLocaleString('zh-CN', { hour12: false });
