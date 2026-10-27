@@ -15,21 +15,21 @@
           <label>编号 ID</label>
           <el-input v-model="searchForm.userId" placeholder="搜索编号" clearable />
         </div>
-        <!-- 🆕 隐藏虚拟机器人开关 -->
+        <!-- 隐藏虚拟机器人开关 -->
         <div class="form-item" style="flex: 0.5; justify-content: flex-end;">
           <label style="opacity: 0;">开关</label>
           <el-switch 
             v-model="hideBots" 
             active-text="隐藏虚拟机器人" 
             inactive-text="显示全部"
-            @change="fetchUsers"
+            @change="handleSearch"
             style="--el-switch-on-color: #e83862;"
           />
         </div>
       </div>
 
       <div class="action-btns">
-        <el-button type="primary" @click="fetchUsers">开始查找</el-button>
+        <el-button type="primary" @click="handleSearch">开始查找</el-button>
         <el-button class="reset-btn" @click="resetSearch">重置条件</el-button>
       </div>
     </div>
@@ -112,6 +112,20 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 🆕 真正的后端分页器 -->
+      <div class="pagination-wrapper">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          :total="total"
+          @current-change="fetchUsers"
+          @size-change="handleSizeChange"
+          background
+        />
+      </div>
     </div>
 
     <!-- 调频抽屉 -->
@@ -164,7 +178,12 @@ import request from '../api/request';
 const usersList = ref([]);
 const loading = ref(false);
 const globalProbabilities = ref([]);
-const hideBots = ref(false); // 🆕 默认不隐藏，点开关后隐藏机器人
+const hideBots = ref(false); 
+
+// 🆕 分页状态
+const currentPage = ref(1);
+const pageSize = ref(20);
+const total = ref(0); // 接收后端返回的总条数
 
 const searchForm = ref({
   username: '',
@@ -175,16 +194,40 @@ const fetchUsers = async () => {
   loading.value = true;
   try {
     const { username, userId } = searchForm.value;
-    // 🆕 在请求中带上 hideBots 参数
-    const res = await request.get(`/admin/users?username=${username}&userId=${userId}&hideBots=${hideBots.value ? 1 : 0}`);
-    if (res.data.success) usersList.value = res.data.users;
+    // 🆕 请求时带上 page 和 pageSize
+    const res = await request.get('/admin/users', {
+      params: {
+        username,
+        userId,
+        hideBots: hideBots.value ? 1 : 0,
+        page: currentPage.value,
+        pageSize: pageSize.value
+      }
+    });
+    if (res.data.success) {
+      usersList.value = res.data.users;
+      total.value = res.data.total; // 🆕 赋值总数
+    }
   } catch (e) { ElMessage.error('获取用户失败'); }
   finally { loading.value = false; }
 };
 
+// 🆕 搜索时重置回第一页
+const handleSearch = () => {
+  currentPage.value = 1;
+  fetchUsers();
+};
+
+// 🆕 切换每页条数时重置回第一页
+const handleSizeChange = () => {
+  currentPage.value = 1;
+  fetchUsers();
+};
+
 const resetSearch = () => {
   searchForm.value = { username: '', userId: '' };
-  hideBots.value = false; // 🆕 重置时也把开关关掉
+  hideBots.value = false; 
+  currentPage.value = 1;
   fetchUsers();
 };
 
@@ -293,6 +336,33 @@ onMounted(() => {
 .action-btns .el-button { width: 120px; border-radius: 6px; }
 .action-btns .reset-btn { background: #1e293b; border-color: #334155; color: #cbd5e1; }
 .table-panel { background: #151e2e; border-radius: 12px; padding: 1px; border: 1px solid #1e293b; overflow: hidden; }
+
+/* 🆕 分页器样式，适配暗黑主题 */
+.pagination-wrapper {
+  padding: 20px;
+  display: flex;
+  justify-content: flex-end;
+  background: #151e2e;
+  border-top: 1px solid #1e293b;
+}
+:deep(.el-pagination) {
+  --el-pagination-bg-color: transparent;
+  --el-pagination-text-color: #94a3b8;
+  --el-pagination-button-bg-color: #1e293b;
+  --el-pagination-button-color: #cbd5e1;
+  --el-pagination-hover-color: #e83862;
+  --el-pagination-button-disabled-color: #475569;
+  --el-pagination-button-disabled-bg-color: #0f172a;
+}
+:deep(.el-pagination.is-background .el-pager li) {
+  background-color: #1e293b;
+  color: #cbd5e1;
+}
+:deep(.el-pagination.is-background .el-pager li.is-active) {
+  background-color: #e83862;
+  color: white;
+}
+
 :deep(.el-table) { background-color: transparent; color: #cbd5e1; --el-table-border-color: #1e293b; --el-table-header-bg-color: #0f172a; --el-table-row-hover-bg-color: #1e293b; }
 :deep(.el-table th.el-table__cell) { background-color: #0f172a; color: #94a3b8; border-bottom: 1px solid #1e293b; font-weight: 500; padding: 16px 0; }
 :deep(.el-table tr) { background-color: #151e2e; }
