@@ -77,9 +77,10 @@
         <!-- 当前状态列 -->
         <el-table-column label="当前状态" width="120" align="center">
           <template #default="scope">
-            <el-tag v-if="scope.row.verify_status === 1" type="warning" effect="light" round>审核中</el-tag>
+            <el-tag v-if="scope.row.verify_status === 0" type="info" effect="plain" round>未实名</el-tag>
+            <el-tag v-else-if="scope.row.verify_status === 1" type="warning" effect="light" round>审核中</el-tag>
             <el-tag v-else-if="scope.row.verify_status === 2" type="success" effect="light" round>已通过</el-tag>
-            <el-tag v-else type="danger" effect="plain" round>已驳回</el-tag>
+            <el-tag v-else-if="scope.row.verify_status === 3" type="danger" effect="plain" round>已驳回</el-tag>
           </template>
         </el-table-column>
 
@@ -93,16 +94,16 @@
           <template #default="scope">
             <!-- 待审核状态 -->
             <div v-if="scope.row.verify_status === 1" style="display: flex; gap: 8px; justify-content: center;">
-              <el-button type="success" size="small" round @click="handleApprove(scope.row.id, 'approve')">通过</el-button>
-              <el-button type="danger" size="small" plain round @click="handleApprove(scope.row.id, 'reject')">驳回</el-button>
+              <el-button type="success" size="small" round @click="handleApprove(scope.row.id, 2)">通过</el-button>
+              <el-button type="danger" size="small" plain round @click="handleApprove(scope.row.id, 3)">驳回</el-button>
             </div>
             <!-- 已通过状态 -->
             <div v-else-if="scope.row.verify_status === 2">
-              <el-button type="warning" size="small" plain round @click="handleApprove(scope.row.id, 'reject')">撤销并驳回</el-button>
+              <el-button type="warning" size="small" plain round @click="handleApprove(scope.row.id, 3)">撤销并驳回</el-button>
             </div>
             <!-- 已驳回状态 -->
-            <div v-else>
-              <el-button type="success" size="small" plain round @click="handleApprove(scope.row.id, 'approve')">重新通过</el-button>
+            <div v-else-if="scope.row.verify_status === 3">
+              <el-button type="success" size="small" plain round @click="handleApprove(scope.row.id, 2)">重新通过</el-button>
             </div>
           </template>
         </el-table-column>
@@ -136,9 +137,9 @@ const fetchPendingUsers = async () => {
   }
 };
 
-// 处理审核逻辑
-const handleApprove = async (userId, action) => {
-  const actionText = action === 'approve' ? '通过' : '驳回';
+// 处理审核逻辑 (改为传递数字状态：2代表通过，3代表驳回)
+const handleApprove = async (userId, targetStatus) => {
+  const actionText = targetStatus === 2 ? '通过' : '驳回';
   try {
     await ElMessageBox.confirm(`确认要${actionText}该用户的实名申请吗？`, '操作确认', { 
       type: 'warning',
@@ -146,7 +147,8 @@ const handleApprove = async (userId, action) => {
       cancelButtonText: '取消'
     });
     
-    const res = await request.post(`/admin/approve-verify/${userId}`, { action });
+    // 🆕 修改：传递 targetStatus 给后端
+    const res = await request.post(`/admin/approve-verify/${userId}`, { status: targetStatus });
     if (res.data.success) {
       ElMessage.success(`已${actionText}该申请`);
       fetchPendingUsers(); // 刷新列表
