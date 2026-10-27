@@ -10,9 +10,9 @@
         :default-active="$route.path" 
         router 
         class="side-menu"
-        background-color="#1e232d" 
-        text-color="#8b95a5" 
-        active-text-color="#3b82f6"
+        background-color="transparent" 
+        text-color="#94a3b8" 
+        active-text-color="#38bdf8"
       >
         <el-menu-item index="/dashboard">
           <el-icon><Monitor /></el-icon> <span>系统首页</span>
@@ -34,21 +34,27 @@
           <el-icon><DocumentChecked /></el-icon> <span>资料审核</span>
         </el-menu-item>
         <el-menu-item index="/records">
-          <el-icon><List /></el-icon> <span>公告消息</span>
+          <el-icon><List /></el-icon> <span>抽奖流水</span>
         </el-menu-item>
       </el-menu>
     </el-aside>
 
     <el-container>
+      <!-- 顶栏深色化 -->
       <el-header class="top-bar">
-        <div class="breadcrumb">当前位置：{{ currentPageTitle }}</div>
+        <div class="breadcrumb">
+          <span class="dot"></span> 当前位置：{{ currentPageTitle }}
+        </div>
         <div class="user-info">
-          <el-avatar :size="32" style="background: #3b82f6;">{{ adminName.charAt(0) }}</el-avatar>
-          <span>{{ adminName }}</span>
-          <el-button type="text" style="color: #ef4444;" @click="logout">退出</el-button>
+          <el-avatar :size="28" style="background: #0ea5e9; color: #fff; font-weight: bold;">
+            {{ adminName.charAt(0).toUpperCase() }}
+          </el-avatar>
+          <span class="admin-name">{{ adminName }}</span>
+          <el-button type="text" class="logout-btn" @click="logout">退出登录</el-button>
         </div>
       </el-header>
 
+      <!-- 主内容区深色化 -->
       <el-main class="page-content">
         <router-view />
       </el-main>
@@ -68,38 +74,112 @@ const adminName = ref(localStorage.getItem('admin_name') || 'Admin');
 const currentPageTitle = computed(() => {
   const map = {
     '/dashboard': '系统首页', '/users': '客户管理', '/recharge': '入金管理', 
-    '/withdrawals': '出金审批', '/verify': '资料审核', '/records': '公告消息'
+    '/withdrawals': '出金审批', '/verify': '资料审核', '/records': '抽奖流水'
   };
   return map[route.path] || '后台管理';
 });
 
 const logout = () => {
   localStorage.removeItem('admin_token');
+  localStorage.removeItem('user');
   router.push('/login');
 };
 </script>
 
 <style scoped>
-.dark-layout { height: 100vh; background: #f1f5f9; font-family: 'Inter', sans-serif; }
-.sidebar { background: #1e232d; display: flex; flex-direction: column; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 10; }
-.logo-area { height: 60px; display: flex; align-items: center; padding: 0 20px; color: white; font-size: 18px; font-weight: bold; border-bottom: 1px solid #2a303c; }
-.logo-icon { color: #3b82f6; font-size: 24px; margin-right: 8px; }
+/* 整个页面最底层的颜色，和你的数据表格完全一致 */
+.dark-layout { 
+  height: 100vh; 
+  background: #0f172a; 
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+}
 
-.side-menu { border-right: none; }
+/* ================= 侧边栏 ================= */
+.sidebar { 
+  background: #1e293b; /* 比底色稍微亮一点，形成层次感 */
+  display: flex; 
+  flex-direction: column; 
+  border-right: 1px solid #334155; 
+  z-index: 10; 
+}
+
+.logo-area { 
+  height: 60px; 
+  display: flex; 
+  align-items: center; 
+  padding: 0 20px; 
+  color: #f8fafc; 
+  font-size: 18px; 
+  font-weight: 900; 
+  letter-spacing: 1px;
+  border-bottom: 1px solid #334155; 
+  background: #0f172a;
+}
+.logo-icon { 
+  color: #0ea5e9; /* 科技蓝 */
+  font-size: 24px; 
+  margin-right: 8px; 
+  text-shadow: 0 0 10px rgba(14, 165, 233, 0.5);
+}
+
+.side-menu { border-right: none; padding: 10px; }
 .side-menu :deep(.el-menu-item), .side-menu :deep(.el-sub-menu__title) { 
-  height: 50px; line-height: 50px; color: #8b95a5; 
+  height: 48px; 
+  line-height: 48px; 
+  border-radius: 8px;
+  margin-bottom: 4px;
+  transition: all 0.3s;
 }
 .side-menu :deep(.el-menu-item:hover), .side-menu :deep(.el-sub-menu__title:hover) {
-  background-color: #2a303c !important; color: #fff !important;
+  background-color: #334155 !important; 
+  color: #f8fafc !important;
 }
 .side-menu :deep(.el-menu-item.is-active) {
-  background-color: #2a303c !important; color: #3b82f6 !important;
-  border-left: 3px solid #3b82f6; /* 左侧蓝色高亮线，完美复刻截图 */
+  background: rgba(14, 165, 233, 0.15) !important; 
+  color: #38bdf8 !important;
+  font-weight: bold;
+  box-shadow: inset 3px 0 0 #38bdf8; /* 激活状态的左侧高亮条 */
 }
-.side-menu :deep(.el-sub-menu .el-menu-item) { background-color: #181c23 !important; padding-left: 50px !important; }
+.side-menu :deep(.el-sub-menu .el-menu-item) { 
+  background-color: transparent !important; 
+  padding-left: 50px !important; 
+}
 
-.top-bar { background: #fff; display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
-.breadcrumb { font-size: 14px; color: #64748b; font-weight: 500; }
-.user-info { display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: bold; color: #333; }
-.page-content { padding: 20px; background: #f1f5f9; }
+/* ================= 顶部导航栏 ================= */
+.top-bar { 
+  background: #1e293b; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  padding: 0 24px; 
+  border-bottom: 1px solid #334155; 
+  height: 60px;
+}
+
+.breadcrumb { 
+  font-size: 14px; 
+  color: #94a3b8; 
+  display: flex; 
+  align-items: center;
+  gap: 8px;
+}
+.breadcrumb .dot {
+  width: 6px; height: 6px; background: #38bdf8; border-radius: 50%;
+}
+
+.user-info { 
+  display: flex; 
+  align-items: center; 
+  gap: 12px; 
+  font-size: 14px; 
+}
+.admin-name { color: #cbd5e1; font-weight: 600; }
+.logout-btn { color: #f43f5e !important; font-weight: bold; }
+.logout-btn:hover { color: #fca5a5 !important; }
+
+/* ================= 主内容区 ================= */
+.page-content { 
+  padding: 0; /* 去掉默认内边距，让子页面的 dark-page 撑满 */
+  background: #0f172a; 
+}
 </style>
