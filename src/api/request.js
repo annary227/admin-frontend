@@ -3,7 +3,7 @@ import axios from 'axios';
 // 创建 axios 实例
 const request = axios.create({
   // 🆕 已经帮你删除了中间的空格，路径是完美的
-  baseURL: 'https://estimate-tray-elderly-madonna.trycloudflare.com/api', 
+  baseURL: 'https://said-physics-auto-lovely.trycloudflare.com/api', 
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
