@@ -56,7 +56,8 @@
             {{ adminName.charAt(0).toUpperCase() }}
           </el-avatar>
           <span class="admin-name">{{ adminName }}</span>
-          <el-button type="text" class="logout-btn" @click="logout">退出登录</el-button>
+          <!-- 🆕 修复 Element Plus 警告：type="text" 改为 link -->
+          <el-button link type="danger" class="logout-btn" @click="logout">退出登录</el-button>
         </div>
       </el-header>
 
@@ -71,7 +72,6 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-// 🆕 把 TrophyBaseball 换成了官方确实存在的 DataLine 图标
 import { Monitor, User, Money, DocumentChecked, List, DataLine } from '@element-plus/icons-vue';
 
 const router = useRouter();
@@ -81,7 +81,7 @@ const adminName = ref(localStorage.getItem('admin_name') || 'Admin');
 const currentPageTitle = computed(() => {
   const map = {
     '/dashboard': '系统首页', 
-    '/mlb-manage': 'MLB 赛事管理', // 🆕 新增面包屑导航
+    '/mlb-manage': 'MLB 赛事管理', 
     '/users': '客户管理', 
     '/recharge': '入金管理', 
     '/withdrawals': '出金审批', 
@@ -186,7 +186,7 @@ const logout = () => {
   font-size: 14px; 
 }
 .admin-name { color: #cbd5e1; font-weight: 600; }
-.logout-btn { color: #f43f5e !important; font-weight: bold; }
+.logout-btn { font-weight: bold; }
 .logout-btn:hover { color: #fca5a5 !important; }
 
 /* ================= 主内容区 ================= */
