@@ -115,10 +115,18 @@
             <td>
               <div class="status-box">
                 <span class="status-badge" :class="bet.status">
-                  {{ bet.status === 'pending' ? '待结算' : (bet.status === 'won' ? '已中奖' : '未中奖') }}
+                  {{ 
+                    bet.status === 'pending' ? '待结算' : 
+                    bet.status === 'won' ? '已中奖' : 
+                    bet.status === 'canceled' ? '已取消' : '未中奖' 
+                  }}
                 </span>
                 <div v-if="bet.status === 'won'" class="payout">
                   +¥{{ Math.floor(bet.payout).toLocaleString() }}
+                </div>
+                <!-- 🆕 如果是取消，显示退回本金 -->
+                <div v-if="bet.status === 'canceled'" class="refund">
+                  退款: ¥{{ bet.amount.toLocaleString() }}
                 </div>
               </div>
             </td>
@@ -159,6 +167,7 @@ const pendingAmount = computed(() => {
     .reduce((sum, bet) => sum + Number(bet.amount), 0);
 });
 
+// 已派彩金额（排除取消的订单）
 const totalPayout = computed(() => {
   return bets.value
     .filter(bet => bet.status === 'won')
@@ -325,8 +334,12 @@ onMounted(() => {
 .status-badge.pending { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
 .status-badge.won { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); box-shadow: 0 0 10px rgba(16, 185, 129, 0.2); }
 .status-badge.lost { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+/* 🆕 取消状态样式 */
+.status-badge.canceled { background: rgba(148, 163, 184, 0.15); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
 
 .payout { color: #10b981; font-weight: 900; font-size: 14px; font-family: monospace; }
+/* 🆕 退款金额样式 */
+.refund { color: #94a3b8; font-weight: 900; font-size: 13px; font-family: monospace; }
 
 .time-col { color: #64748b; font-size: 12px; font-family: monospace; }
 
