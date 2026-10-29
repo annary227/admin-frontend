@@ -23,6 +23,11 @@ const router = createRouter({
           path: 'mlb-manage', 
           component: () => import('../views/MlbMatchManage.vue') 
         },
+        // 🆕 新增：棒球注单流水
+        { 
+          path: 'mlb-bets', 
+          component: () => import('../views/MlbBets.vue') 
+        },
         { 
           path: 'users', 
           component: () => import('../views/Users.vue') 

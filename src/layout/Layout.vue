@@ -3,7 +3,8 @@
     <!-- 侧边栏 -->
     <el-aside width="220px" class="sidebar">
       <div class="logo-area">
-        <span class="logo-icon">Q</span> QUICK ONE
+        <!-- 🆕 品牌名同步更新 -->
+        <span class="logo-icon">G</span> GRANDSLAM
       </div>
       
       <el-menu 
@@ -18,9 +19,13 @@
           <el-icon><Monitor /></el-icon> <span>系统首页</span>
         </el-menu-item>
 
-        <!-- 🆕 按照你的要求，新增的 MLB 赛事管理放在了系统首页下方 -->
         <el-menu-item index="/mlb-manage">
           <el-icon><DataLine /></el-icon> <span>MLB 赛事管理</span>
+        </el-menu-item>
+
+        <!-- 🆕 新增：棒球注单流水 -->
+        <el-menu-item index="/mlb-bets">
+          <el-icon><Tickets /></el-icon> <span>⚾ 棒球注单流水</span>
         </el-menu-item>
 
         <el-menu-item index="/users">
@@ -56,7 +61,6 @@
             {{ adminName.charAt(0).toUpperCase() }}
           </el-avatar>
           <span class="admin-name">{{ adminName }}</span>
-          <!-- 🆕 修复 Element Plus 警告：type="text" 改为 link -->
           <el-button link type="danger" class="logout-btn" @click="logout">退出登录</el-button>
         </div>
       </el-header>
@@ -72,7 +76,8 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Monitor, User, Money, DocumentChecked, List, DataLine } from '@element-plus/icons-vue';
+// 🆕 引入 Tickets 图标用于注单菜单
+import { Monitor, User, Money, DocumentChecked, List, DataLine, Tickets } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -82,6 +87,7 @@ const currentPageTitle = computed(() => {
   const map = {
     '/dashboard': '系统首页', 
     '/mlb-manage': 'MLB 赛事管理', 
+    '/mlb-bets': '⚾ 棒球注单流水', // 🆕 新增面包屑标题
     '/users': '客户管理', 
     '/recharge': '入金管理', 
     '/withdrawals': '出金审批', 

@@ -49,7 +49,11 @@
               </div>
             </td>
             <td>
-              <button class="save-btn" @click="saveOfficialScore(match)">保存比分</button>
+              <div class="action-buttons">
+                <button class="save-btn" @click="saveOfficialScore(match)">保存比分</button>
+                <!-- 🆕 强制取消比赛按钮 -->
+                <button class="cancel-match-btn" @click="cancelMatch(match)">取消比赛</button>
+              </div>
             </td>
           </tr>
           <tr v-if="matches.length === 0">
@@ -65,7 +69,7 @@
 import { ref, onMounted } from 'vue';
 // 这里替换成你项目里封装的 axios 请求实例
 import request from '../api/request'; 
-import { ElMessage } from 'element-plus'; // 假设你用了 Element Plus
+import { ElMessage, ElMessageBox } from 'element-plus'; // 引入 ElMessageBox 用于弹窗确认
 
 const matches = ref([]);
 
@@ -117,6 +121,34 @@ const saveOfficialScore = async (match) => {
     }
   } catch (error) {
     ElMessage.error(error.response?.data?.error || '保存失败');
+  }
+};
+
+// 🆕 强制取消比赛并退款
+const cancelMatch = async (match) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要强制取消比赛 ${match.game_pk} (${match.away_team} vs ${match.home_team}) 吗？\n所有已下注的玩家将获得全额退款。`,
+      '强制取消警告',
+      {
+        confirmButtonText: '确定取消并退款',
+        cancelButtonText: '返回',
+        type: 'warning',
+      }
+    );
+
+    const res = await request.post('/admin/mlb-cancel-match', {
+      game_pk: match.game_pk
+    });
+
+    if (res.data.success) {
+      ElMessage.success(`比赛已取消，${res.data.refunded_count} 笔注单已退款`);
+      fetchMatches(); // 刷新列表
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.error || '取消失败');
+    }
   }
 };
 
@@ -185,7 +217,7 @@ onMounted(() => {
 }
 
 .id-col { color: #64748b; font-family: monospace; }
-/* 🆕 时间列样式 */
+/* 时间列样式 */
 .time-col { color: #38bdf8; font-family: monospace; font-weight: bold; font-size: 14px; }
 .teams { display: flex; flex-direction: column; gap: 4px; }
 .teams .vs { font-size: 11px; color: #64748b; font-weight: bold; }
@@ -221,6 +253,12 @@ onMounted(() => {
   border-color: #3b82f6;
 }
 
+/* 🆕 操作按钮容器 */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .save-btn {
   background: #3b82f6;
   color: white;
@@ -232,6 +270,23 @@ onMounted(() => {
   transition: 0.2s;
 }
 .save-btn:hover { background: #2563eb; }
+
+/* 🆕 取消比赛按钮样式 */
+.cancel-match-btn {
+  background: transparent;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+}
+.cancel-match-btn:hover {
+  background: #ef4444;
+  color: white;
+}
+
 .empty-state { text-align: center; color: #64748b; padding: 30px !important; }
 
 @keyframes pulse { 0% { opacity: 1; } 100% { opacity: 0.5; } }
