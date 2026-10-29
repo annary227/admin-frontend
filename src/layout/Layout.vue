@@ -17,6 +17,12 @@
         <el-menu-item index="/dashboard">
           <el-icon><Monitor /></el-icon> <span>系统首页</span>
         </el-menu-item>
+
+        <!-- 🆕 按照你的要求，新增的 MLB 赛事管理放在了系统首页下方 -->
+        <el-menu-item index="/mlb-manage">
+          <el-icon><DataLine /></el-icon> <span>MLB 赛事管理</span>
+        </el-menu-item>
+
         <el-menu-item index="/users">
           <el-icon><User /></el-icon> <span>客户管理</span>
         </el-menu-item>
@@ -65,7 +71,8 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { Monitor, User, Money, DocumentChecked, List } from '@element-plus/icons-vue';
+// 🆕 把 TrophyBaseball 换成了官方确实存在的 DataLine 图标
+import { Monitor, User, Money, DocumentChecked, List, DataLine } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -73,8 +80,13 @@ const adminName = ref(localStorage.getItem('admin_name') || 'Admin');
 
 const currentPageTitle = computed(() => {
   const map = {
-    '/dashboard': '系统首页', '/users': '客户管理', '/recharge': '入金管理', 
-    '/withdrawals': '出金审批', '/verify': '资料审核', '/records': '抽奖流水'
+    '/dashboard': '系统首页', 
+    '/mlb-manage': 'MLB 赛事管理', // 🆕 新增面包屑导航
+    '/users': '客户管理', 
+    '/recharge': '入金管理', 
+    '/withdrawals': '出金审批', 
+    '/verify': '资料审核', 
+    '/records': '抽奖流水'
   };
   return map[route.path] || '后台管理';
 });

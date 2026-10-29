@@ -18,6 +18,11 @@ const router = createRouter({
           path: 'dashboard', 
           component: () => import('../views/Dashboard.vue') 
         },
+        // 🆕 新增：MLB 赛事管理
+        { 
+          path: 'mlb-manage', 
+          component: () => import('../views/MlbMatchManage.vue') 
+        },
         { 
           path: 'users', 
           component: () => import('../views/Users.vue') 
