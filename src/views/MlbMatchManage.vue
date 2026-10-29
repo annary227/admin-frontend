@@ -11,6 +11,7 @@
         <thead>
           <tr>
             <th>比赛ID (game_pk)</th>
+            <th>比赛时间</th>
             <th>对战队伍</th>
             <th>真实比分 (API)</th>
             <th>当前状态</th>
@@ -21,6 +22,10 @@
         <tbody>
           <tr v-for="match in matches" :key="match.game_pk">
             <td class="id-col">{{ match.game_pk }}</td>
+            <!-- 🆕 新增：比赛时间列 -->
+            <td class="time-col">
+              {{ formatMatchTime(match.game_date) }}
+            </td>
             <td>
               <div class="teams">
                 <span>{{ match.away_team }}</span>
@@ -48,7 +53,7 @@
             </td>
           </tr>
           <tr v-if="matches.length === 0">
-            <td colspan="6" class="empty-state">暂无比赛数据</td>
+            <td colspan="7" class="empty-state">暂无比赛数据</td>
           </tr>
         </tbody>
       </table>
@@ -63,6 +68,17 @@ import request from '../api/request';
 import { ElMessage } from 'element-plus'; // 假设你用了 Element Plus
 
 const matches = ref([]);
+
+// 🆕 格式化时间函数，让日期显示更易读
+const formatMatchTime = (timeStr) => {
+  if (!timeStr) return '-';
+  const d = new Date(timeStr);
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${month}/${day} ${hours}:${minutes}`;
+};
 
 // 获取比赛列表
 const fetchMatches = async () => {
@@ -169,6 +185,8 @@ onMounted(() => {
 }
 
 .id-col { color: #64748b; font-family: monospace; }
+/* 🆕 时间列样式 */
+.time-col { color: #38bdf8; font-family: monospace; font-weight: bold; font-size: 14px; }
 .teams { display: flex; flex-direction: column; gap: 4px; }
 .teams .vs { font-size: 11px; color: #64748b; font-weight: bold; }
 .score-col { font-weight: bold; color: #fbbf24; font-size: 16px; }
