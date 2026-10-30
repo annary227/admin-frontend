@@ -56,7 +56,11 @@
         
         <el-table-column prop="username" label="用户名" min-width="160">
           <template #default="scope">
-            <span class="text-gray">{{ scope.row.username }}</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="text-gray">{{ scope.row.username }}</span>
+              <!-- 🆕 代理标识 -->
+              <el-tag v-if="scope.row.is_agent === 1" type="warning" effect="dark" size="small" style="border-radius: 4px;">👑 代理</el-tag>
+            </div>
           </template>
         </el-table-column>
 
@@ -78,12 +82,22 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="220" fixed="right">
+        <!-- 🆕 操作列加宽，增加查看下级按钮 -->
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="scope">
             <div class="action-group">
               <button class="btn-add" @click="openRechargeModal(scope.row, 1)">加币</button>
               <button class="btn-sub" @click="openRechargeModal(scope.row, -1)">扣币</button>
               <button class="btn-edit" @click="openUserProbModal(scope.row)">风控</button>
+              
+              <!-- 🆕 代理专属查看下级按钮 -->
+              <button 
+                v-if="scope.row.is_agent === 1" 
+                class="btn-agent" 
+                @click="openSubordinates(scope.row)"
+              >
+                查看下级
+              </button>
             </div>
           </template>
         </el-table-column>
@@ -104,34 +118,46 @@
       </div>
     </div>
 
-    <!-- 🆕 极简风控抽屉 -->
+    <!-- 风控抽屉 -->
     <el-drawer v-model="drawerVisible" :title="`风控操作 - ${currentUser.username}`" size="380px">
       <div class="drawer-content">
-        <el-alert
-          title="高风险操作提示"
-          type="warning"
-          :closable="false"
-          show-icon
-          style="margin-bottom: 20px;"
-        >
+        <el-alert title="高风险操作提示" type="warning" :closable="false" show-icon style="margin-bottom: 20px;">
           开启封锁后，该用户无论玩什么游戏，都只会抽到最差的奖品（全盘不中奖）。
         </el-alert>
-
         <div class="control-switch-box">
           <span class="label">全盘封锁 (只输不赢)</span>
-          <el-switch 
-            v-model="isUserBlocked" 
-            active-text="已封锁"
-            inactive-text="正常"
-            style="--el-switch-on-color: #ef4444; --el-switch-off-color: #10b981;"
-            @change="handleBlockChange"
-          />
+          <el-switch v-model="isUserBlocked" active-text="已封锁" inactive-text="正常" style="--el-switch-on-color: #ef4444; --el-switch-off-color: #10b981;" @change="handleBlockChange" />
         </div>
-        
         <div style="margin-top: 30px; text-align: center; color: #64748b; font-size: 13px;">
           当前状态：{{ isUserBlocked ? '【黑名单】系统将拦截该用户的任何大奖' : '【正常】正常读取系统全局概率' }}
         </div>
       </div>
+    </el-drawer>
+
+    <!-- 🆕 代理下级用户抽屉 -->
+    <el-drawer v-model="subDrawerVisible" :title="`代理 [${currentAgent.username}] 的下级列表`" size="50%">
+      <el-table :data="subordinatesList" v-loading="subLoading" style="width: 100%">
+        <el-table-column prop="id" label="ID" width="80">
+          <template #default="scope">#{{ scope.row.id }}</template>
+        </el-table-column>
+        <el-table-column prop="username" label="用户名" />
+        <el-table-column label="余额">
+          <template #default="scope">
+            <span class="balance-text">{{ scope.row.balance.toLocaleString() }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="注册时间">
+          <template #default="scope">
+            <span class="time-text">{{ formatTime(scope.row.created_at) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="最后活跃">
+          <template #default="scope">
+            <span class="time-text">{{ formatTime(scope.row.last_active_at) }}</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <el-empty v-if="!subLoading && subordinatesList.length === 0" description="该代理暂无下级" />
     </el-drawer>
 
     <!-- 资金操作弹窗 -->
@@ -164,10 +190,7 @@ const total = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(20);
 
-const searchForm = ref({
-  username: '',
-  userId: ''
-});
+const searchForm = ref({ username: '', userId: '' });
 
 const fetchUsers = async () => {
   loading.value = true;
@@ -175,8 +198,7 @@ const fetchUsers = async () => {
     const { username, userId } = searchForm.value;
     const res = await request.get('/admin/users', {
       params: {
-        username,
-        userId,
+        username, userId,
         hideBots: hideBots.value ? 1 : 0,
         page: currentPage.value,
         pageSize: pageSize.value
@@ -190,16 +212,8 @@ const fetchUsers = async () => {
   finally { loading.value = false; }
 };
 
-const handleSearch = () => {
-  currentPage.value = 1;
-  fetchUsers();
-};
-
-const handleSizeChange = () => {
-  currentPage.value = 1;
-  fetchUsers();
-};
-
+const handleSearch = () => { currentPage.value = 1; fetchUsers(); };
+const handleSizeChange = () => { currentPage.value = 1; fetchUsers(); };
 const resetSearch = () => {
   searchForm.value = { username: '', userId: '' };
   hideBots.value = false; 
@@ -223,7 +237,32 @@ const tableRowClassName = ({ rowIndex }) => {
 };
 
 // ==========================================
-// 🆕 风控逻辑
+// 🆕 代理下级逻辑
+// ==========================================
+const subDrawerVisible = ref(false);
+const currentAgent = ref({});
+const subordinatesList = ref([]);
+const subLoading = ref(false);
+
+const openSubordinates = async (agent) => {
+  currentAgent.value = agent;
+  subDrawerVisible.value = true;
+  subLoading.value = true;
+  subordinatesList.value = [];
+  try {
+    const res = await request.get(`/admin/agent/${agent.id}/subordinates`);
+    if (res.data.success) {
+      subordinatesList.value = res.data.data;
+    }
+  } catch (e) {
+    ElMessage.error('获取下级用户失败');
+  } finally {
+    subLoading.value = false;
+  }
+};
+
+// ==========================================
+// 风控逻辑
 // ==========================================
 const drawerVisible = ref(false);
 const currentUser = ref({});
@@ -235,29 +274,23 @@ const openUserProbModal = (user) => {
     try {
       const prob = JSON.parse(user.custom_probability);
       isUserBlocked.value = prob.length === 1 && prob[0].name === 'BLOCKED';
-    } catch(e) {
-      isUserBlocked.value = false;
-    }
+    } catch(e) { isUserBlocked.value = false; }
   } else {
     isUserBlocked.value = false;
   }
   drawerVisible.value = true;
 };
 
-// 🆕 暴力开关
 const handleBlockChange = async (val) => {
   try {
     let probability = null;
-    if (val) {
-      probability = [{ name: 'BLOCKED', value: 0, probability: 100 }];
-    }
-    
+    if (val) probability = [{ name: 'BLOCKED', value: 0, probability: 100 }];
     await request.post(`/admin/set-user-probability/${currentUser.value.id}`, { probability });
     ElMessage.success(val ? '已开启黑名单封锁！' : '已恢复该用户的正常概率！');
     fetchUsers();
   } catch (error) {
     ElMessage.error('风控操作失败');
-    isUserBlocked.value = !val; // 失败回滚状态
+    isUserBlocked.value = !val;
   }
 };
 
@@ -331,7 +364,7 @@ onMounted(() => {
 .status-tag.online .dot { background: #10b981; box-shadow: 0 0 8px #10b981; }
 .status-tag.offline .dot { background: #64748b; }
 .action-group { display: flex; gap: 8px; justify-content: center; }
-.action-group button { padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; border: 1px solid; background: transparent; transition: all 0.2s; }
+.action-group button { padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; border: 1px solid; background: transparent; transition: all 0.2s; white-space: nowrap; }
 .btn-add { color: #10b981; border-color: rgba(16, 185, 129, 0.4); }
 .btn-add:hover { background: rgba(16, 185, 129, 0.1); }
 .btn-sub { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
@@ -339,7 +372,11 @@ onMounted(() => {
 .btn-edit { color: #eab308; border-color: rgba(234, 179, 8, 0.4); }
 .btn-edit:hover { background: rgba(234, 179, 8, 0.1); }
 
-/* 🆕 极简抽屉样式 */
+/* 🆕 代理按钮专属样式 */
+.btn-agent { color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
+.btn-agent:hover { background: rgba(56, 189, 248, 0.1); }
+
+/* 极简抽屉样式 */
 .drawer-content { padding: 10px; }
 .control-switch-box {
   background: #f1f5f9;
@@ -349,9 +386,5 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
 }
-.control-switch-box .label {
-  font-weight: bold;
-  color: #1e293b;
-  font-size: 15px;
-}
+.control-switch-box .label { font-weight: bold; color: #1e293b; font-size: 15px; }
 </style>
