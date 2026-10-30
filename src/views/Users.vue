@@ -40,6 +40,7 @@
         style="width: 100%" 
         :row-class-name="tableRowClassName"
         @expand-change="handleExpandChange"
+        ref="tableRef"
       >
         <!-- 行内展开列 -->
         <el-table-column type="expand">
@@ -96,11 +97,21 @@
           <template #default="scope">#{{ scope.row.id }}</template>
         </el-table-column>
         
-        <el-table-column prop="username" label="用户名" min-width="160">
+        <!-- 🆕 在用户名这里整合展开功能 -->
+        <el-table-column prop="username" label="用户名" min-width="180">
           <template #default="scope">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="text-gray">{{ scope.row.username }}</span>
-              <el-tag v-if="scope.row.is_agent === 1" type="warning" effect="dark" size="small" style="border-radius: 4px;">👑 代理</el-tag>
+              <template v-if="scope.row.is_agent === 1">
+                <el-tag type="warning" effect="dark" size="small" style="border-radius: 4px;">👑 代理</el-tag>
+                <!-- 极小号的文字链接，代替原来的大按钮 -->
+                <span 
+                  class="agent-toggle-link" 
+                  @click="toggleRowExpand(scope.row, $event)"
+                >
+                  {{ scope.row.subordinates ? '[收起团队]' : '[查看团队]' }}
+                </span>
+              </template>
             </div>
           </template>
         </el-table-column>
@@ -123,22 +134,13 @@
           </template>
         </el-table-column>
         
-        <!-- 🆕 修复：宽度改为 280，彻底解决凸起问题 -->
-        <el-table-column label="操作" width="280" fixed="right">
+        <!-- 🆕 操作列宽度恢复原样，永远只有三个按钮，绝对整齐 -->
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="scope">
             <div class="action-group">
               <button class="btn-add" @click="openRechargeModal(scope.row, 1)">加币</button>
               <button class="btn-sub" @click="openRechargeModal(scope.row, -1)">扣币</button>
               <button class="btn-edit" @click="openUserProbModal(scope.row)">风控</button>
-              
-              <!-- 代理专属查看下级按钮 -->
-              <button 
-                v-if="scope.row.is_agent === 1" 
-                class="btn-agent" 
-                @click="toggleRowExpand(scope.row, $event)"
-              >
-                {{ scope.row.subordinates ? '收起' : '下级' }}
-              </button>
             </div>
           </template>
         </el-table-column>
@@ -253,7 +255,7 @@ const tableRowClassName = ({ rowIndex }) => {
 };
 
 // ==========================================
-// 🆕 代理下级逻辑 (行内展开)
+// 🆕 代理下级逻辑
 // ==========================================
 const handleExpandChange = async (row, expandedRows) => {
   if (expandedRows.includes(row) && !row.subordinates) {
@@ -271,9 +273,8 @@ const handleExpandChange = async (row, expandedRows) => {
   }
 };
 
-// 🆕 点击按钮控制展开/收起
 const toggleRowExpand = (row, event) => {
-  event.stopPropagation(); 
+  if (event) event.stopPropagation(); 
   if (!tableRef.value) return;
   tableRef.value.toggleRowExpansion(row);
 };
@@ -380,8 +381,10 @@ onMounted(() => {
 .status-tag .dot { width: 6px; height: 6px; border-radius: 50%; }
 .status-tag.online .dot { background: #10b981; box-shadow: 0 0 8px #10b981; }
 .status-tag.offline .dot { background: #64748b; }
-.action-group { display: flex; gap: 8px; justify-content: center; }
-.action-group button { padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; border: 1px solid; background: transparent; transition: all 0.2s; white-space: nowrap; }
+
+/* 🆕 右侧只有三个按钮，宽度绝对一致 */
+.action-group { display: flex; gap: 8px; justify-content: center; align-items: center; }
+.action-group button { height: 28px; padding: 0 12px; border-radius: 4px; font-size: 12px; cursor: pointer; border: 1px solid; background: transparent; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; }
 .btn-add { color: #10b981; border-color: rgba(16, 185, 129, 0.4); }
 .btn-add:hover { background: rgba(16, 185, 129, 0.1); }
 .btn-sub { color: #ef4444; border-color: rgba(239, 68, 68, 0.4); }
@@ -389,9 +392,17 @@ onMounted(() => {
 .btn-edit { color: #eab308; border-color: rgba(234, 179, 8, 0.4); }
 .btn-edit:hover { background: rgba(234, 179, 8, 0.1); }
 
-/* 🆕 代理按钮专属样式 */
-.btn-agent { color: #38bdf8; border-color: rgba(56, 189, 248, 0.4); }
-.btn-agent:hover { background: rgba(56, 189, 248, 0.1); }
+/* 🆕 用户名旁边的迷你文字链接样式 */
+.agent-toggle-link {
+  color: #38bdf8;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-left: 4px;
+}
+.agent-toggle-link:hover {
+  color: #7dd3fc;
+}
 
 /* 极简抽屉样式 */
 .drawer-content { padding: 10px; }
