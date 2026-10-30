@@ -123,7 +123,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="320" fixed="right">
+        <el-table-column label="操作" width="320">
           <template #default="scope">
             <div class="action-group">
               <button class="btn-add" @click="openRechargeModal(scope.row, 1)">加币</button>
