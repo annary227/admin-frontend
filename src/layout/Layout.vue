@@ -37,7 +37,8 @@
           <template #title>
             <el-icon><Money /></el-icon> <span>客户资金</span>
           </template>
-          <el-menu-item index="/recharge">入金管理</el-menu-item>
+          <!-- 🆕 改成了入金审批，并指向 /deposits -->
+          <el-menu-item index="/deposits">入金审批</el-menu-item>
           <el-menu-item index="/withdrawals">出金审批</el-menu-item>
         </el-sub-menu>
 
@@ -87,9 +88,9 @@ const currentPageTitle = computed(() => {
   const map = {
     '/dashboard': '系统首页', 
     '/mlb-manage': 'MLB 赛事管理', 
-    '/mlb-bets': '⚾ 棒球注单流水', // 🆕 新增面包屑标题
+    '/mlb-bets': '⚾ 棒球注单流水', 
     '/users': '客户管理', 
-    '/recharge': '入金管理', 
+    '/deposits': '入金审批', // 🆕 新增面包屑标题
     '/withdrawals': '出金审批', 
     '/verify': '资料审核', 
     '/records': '抽奖流水'

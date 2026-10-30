@@ -45,6 +45,11 @@ const router = createRouter({
           path: 'withdrawals', 
           component: () => import('../views/Withdrawals.vue') 
         },
+        // 🆕 入金审批 (新增这个！)
+        { 
+          path: 'deposits', 
+          component: () => import('../views/Deposits.vue') 
+        },
         // 🆕 实名资料审核
         { 
           path: 'verify', 
