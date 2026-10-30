@@ -15,7 +15,6 @@
           <label>编号 ID</label>
           <el-input v-model="searchForm.userId" placeholder="搜索编号" clearable />
         </div>
-        <!-- 隐藏虚拟机器人开关 -->
         <div class="form-item" style="flex: 0.5; justify-content: flex-end;">
           <label style="opacity: 0;">开关</label>
           <el-switch 
@@ -40,7 +39,50 @@
         v-loading="loading"
         style="width: 100%" 
         :row-class-name="tableRowClassName"
+        @expand-change="handleExpandChange"
       >
+        <!-- 🆕 行内展开列 (只有代理会有数据) -->
+        <el-table-column type="expand">
+          <template #default="scope">
+            <div v-if="scope.row.is_agent === 1" class="sub-table-container">
+              <div class="sub-table-header">
+                <h4>👑 {{ scope.row.username }} 的下级用户列表</h4>
+              </div>
+              
+              <el-table 
+                :data="scope.row.subordinates || []" 
+                v-loading="scope.row.subLoading"
+                style="width: 100%"
+                :row-class-name="tableRowClassName"
+              >
+                <el-table-column prop="id" label="ID" width="80">
+                  <template #default="scope">#{{ scope.row.id }}</template>
+                </el-table-column>
+                <el-table-column prop="username" label="用户名" />
+                <el-table-column label="余额">
+                  <template #default="scope">
+                    <span class="balance-text">{{ scope.row.balance.toLocaleString() }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="注册时间">
+                  <template #default="scope">
+                    <span class="time-text">{{ formatTime(scope.row.created_at) }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="最后活跃">
+                  <template #default="scope">
+                    <span class="time-text">{{ formatTime(scope.row.last_active_at) }}</span>
+                  </template>
+                </el-table-column>
+              </el-table>
+              <el-empty v-if="scope.row.subordinates && scope.row.subordinates.length === 0" description="该代理暂无下级" />
+            </div>
+            <div v-else style="padding: 20px; text-align: center; color: #64748b;">
+              此用户不是代理，暂无下级。
+            </div>
+          </template>
+        </el-table-column>
+
         <el-table-column label="在线状态" width="100">
           <template #default="scope">
             <div class="status-tag" :class="isOnline(scope.row.last_active_at) ? 'online' : 'offline'">
@@ -58,7 +100,6 @@
           <template #default="scope">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="text-gray">{{ scope.row.username }}</span>
-              <!-- 🆕 代理标识 -->
               <el-tag v-if="scope.row.is_agent === 1" type="warning" effect="dark" size="small" style="border-radius: 4px;">👑 代理</el-tag>
             </div>
           </template>
@@ -82,7 +123,6 @@
           </template>
         </el-table-column>
         
-        <!-- 🆕 操作列加宽，增加查看下级按钮 -->
         <el-table-column label="操作" width="320" fixed="right">
           <template #default="scope">
             <div class="action-group">
@@ -90,13 +130,13 @@
               <button class="btn-sub" @click="openRechargeModal(scope.row, -1)">扣币</button>
               <button class="btn-edit" @click="openUserProbModal(scope.row)">风控</button>
               
-              <!-- 🆕 代理专属查看下级按钮 -->
+              <!-- 代理专属查看下级按钮 -->
               <button 
                 v-if="scope.row.is_agent === 1" 
                 class="btn-agent" 
-                @click="openSubordinates(scope.row)"
+                @click="toggleRowExpand(scope.row, $event)"
               >
-                查看下级
+                {{ scope.row.subordinates ? '收起下级' : '查看下级' }}
               </button>
             </div>
           </template>
@@ -134,32 +174,6 @@
       </div>
     </el-drawer>
 
-    <!-- 🆕 代理下级用户抽屉 -->
-    <el-drawer v-model="subDrawerVisible" :title="`代理 [${currentAgent.username}] 的下级列表`" size="50%">
-      <el-table :data="subordinatesList" v-loading="subLoading" style="width: 100%">
-        <el-table-column prop="id" label="ID" width="80">
-          <template #default="scope">#{{ scope.row.id }}</template>
-        </el-table-column>
-        <el-table-column prop="username" label="用户名" />
-        <el-table-column label="余额">
-          <template #default="scope">
-            <span class="balance-text">{{ scope.row.balance.toLocaleString() }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="注册时间">
-          <template #default="scope">
-            <span class="time-text">{{ formatTime(scope.row.created_at) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="最后活跃">
-          <template #default="scope">
-            <span class="time-text">{{ formatTime(scope.row.last_active_at) }}</span>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-empty v-if="!subLoading && subordinatesList.length === 0" description="该代理暂无下级" />
-    </el-drawer>
-
     <!-- 资金操作弹窗 -->
     <el-dialog v-model="rechargeVisible" title="资金操作" width="400px" center>
       <el-form>
@@ -189,6 +203,7 @@ const hideBots = ref(false);
 const total = ref(0); 
 const currentPage = ref(1);
 const pageSize = ref(20);
+const tableRef = ref(null); // 用于控制表格展开
 
 const searchForm = ref({ username: '', userId: '' });
 
@@ -237,28 +252,31 @@ const tableRowClassName = ({ rowIndex }) => {
 };
 
 // ==========================================
-// 🆕 代理下级逻辑
+// 🆕 代理下级逻辑 (行内展开)
 // ==========================================
-const subDrawerVisible = ref(false);
-const currentAgent = ref({});
-const subordinatesList = ref([]);
-const subLoading = ref(false);
-
-const openSubordinates = async (agent) => {
-  currentAgent.value = agent;
-  subDrawerVisible.value = true;
-  subLoading.value = true;
-  subordinatesList.value = [];
-  try {
-    const res = await request.get(`/admin/agent/${agent.id}/subordinates`);
-    if (res.data.success) {
-      subordinatesList.value = res.data.data;
+const handleExpandChange = async (row, expandedRows) => {
+  // 如果是展开且还没有加载过数据
+  if (expandedRows.includes(row) && !row.subordinates) {
+    row.subLoading = true;
+    try {
+      const res = await request.get(`/admin/agent/${row.id}/subordinates`);
+      if (res.data.success) {
+        // 使用 Vue 的响应式赋值
+        row.subordinates = res.data.data;
+      }
+    } catch (e) {
+      ElMessage.error('获取下级用户失败');
+    } finally {
+      row.subLoading = false;
     }
-  } catch (e) {
-    ElMessage.error('获取下级用户失败');
-  } finally {
-    subLoading.value = false;
   }
+};
+
+// 🆕 点击按钮控制展开/收起
+const toggleRowExpand = (row, event) => {
+  event.stopPropagation(); // 阻止行点击事件冲突
+  if (!tableRef.value) return;
+  tableRef.value.toggleRowExpansion(row);
 };
 
 // ==========================================
@@ -387,4 +405,24 @@ onMounted(() => {
   align-items: center;
 }
 .control-switch-box .label { font-weight: bold; color: #1e293b; font-size: 15px; }
+
+/* 🆕 内部子表格专属背景 */
+.sub-table-container {
+  background: #0b1120;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 10px 20px;
+  border: 1px solid #1e293b;
+}
+.sub-table-header {
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed #1e293b;
+}
+.sub-table-header h4 {
+  margin: 0;
+  color: #fbbf24;
+  font-size: 15px;
+  font-weight: bold;
+}
 </style>
