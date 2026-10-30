@@ -41,7 +41,7 @@
         :row-class-name="tableRowClassName"
         @expand-change="handleExpandChange"
       >
-        <!-- 🆕 行内展开列 (只有代理会有数据) -->
+        <!-- 行内展开列 -->
         <el-table-column type="expand">
           <template #default="scope">
             <div v-if="scope.row.is_agent === 1" class="sub-table-container">
@@ -123,7 +123,8 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="320">
+        <!-- 🆕 修复：宽度改为 280，彻底解决凸起问题 -->
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="scope">
             <div class="action-group">
               <button class="btn-add" @click="openRechargeModal(scope.row, 1)">加币</button>
@@ -136,7 +137,7 @@
                 class="btn-agent" 
                 @click="toggleRowExpand(scope.row, $event)"
               >
-                {{ scope.row.subordinates ? '收起下级' : '查看下级' }}
+                {{ scope.row.subordinates ? '收起' : '下级' }}
               </button>
             </div>
           </template>
@@ -203,7 +204,7 @@ const hideBots = ref(false);
 const total = ref(0); 
 const currentPage = ref(1);
 const pageSize = ref(20);
-const tableRef = ref(null); // 用于控制表格展开
+const tableRef = ref(null); 
 
 const searchForm = ref({ username: '', userId: '' });
 
@@ -255,13 +256,11 @@ const tableRowClassName = ({ rowIndex }) => {
 // 🆕 代理下级逻辑 (行内展开)
 // ==========================================
 const handleExpandChange = async (row, expandedRows) => {
-  // 如果是展开且还没有加载过数据
   if (expandedRows.includes(row) && !row.subordinates) {
     row.subLoading = true;
     try {
       const res = await request.get(`/admin/agent/${row.id}/subordinates`);
       if (res.data.success) {
-        // 使用 Vue 的响应式赋值
         row.subordinates = res.data.data;
       }
     } catch (e) {
@@ -274,7 +273,7 @@ const handleExpandChange = async (row, expandedRows) => {
 
 // 🆕 点击按钮控制展开/收起
 const toggleRowExpand = (row, event) => {
-  event.stopPropagation(); // 阻止行点击事件冲突
+  event.stopPropagation(); 
   if (!tableRef.value) return;
   tableRef.value.toggleRowExpansion(row);
 };
